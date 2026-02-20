@@ -178,8 +178,26 @@ async function ensureAdminKey() {
   }
 }
 
+function isAdminContext() {
+  return Boolean(window.__adminSpa__) || window.location.pathname.startsWith('/admin');
+}
+
 async function ensurePublicKey() {
   if (cachedPublicKey !== null) return cachedPublicKey;
+
+  const tryAdminFallback = async () => {
+    if (!isAdminContext()) return null;
+    const adminKey = await getStoredAppKey();
+    if (!adminKey) return null;
+    try {
+      const ok = await verifyKey('/v1/public/verify', adminKey);
+      if (!ok) return null;
+      cachedPublicKey = `Bearer ${adminKey}`;
+      return cachedPublicKey;
+    } catch (e) {
+      return null;
+    }
+  };
 
   const key = await getStoredPublicKey();
   if (!key) {
@@ -192,11 +210,7 @@ async function ensurePublicKey() {
     } catch (e) {
       // ignore
     }
-    return null;
-  }
-
-  if (!key) {
-    return null;
+    return await tryAdminFallback();
   }
 
   try {
@@ -206,7 +220,7 @@ async function ensurePublicKey() {
     return cachedPublicKey;
   } catch (e) {
     clearStoredPublicKey();
-    return null;
+    return await tryAdminFallback();
   }
 }
 

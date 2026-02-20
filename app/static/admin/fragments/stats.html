@@ -1,0 +1,111 @@
+<main class="space-y-6 flex-1 container mx-auto max-w-6xl px-6 py-8 fade-in">
+  <div class="space-y-6">
+    <div class="stats-topbar">
+      <div class="stats-title-wrap">
+        <h2 class="page-title">统计监控</h2>
+        <p class="page-subtitle">查看请求统计和审计日志。</p>
+      </div>
+
+      <div class="stats-actions">
+        <div class="stats-tabs" role="tablist" aria-label="统计分类">
+          <button class="stats-tab active" data-tab="request" role="tab" aria-selected="true">
+            <span class="stats-tab-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M3 3v18h18"></path><path d="m7 14 4-4 3 3 5-6"></path></svg>
+            </span>
+            <span class="stats-tab-label">请求统计</span>
+          </button>
+          <button class="stats-tab" data-tab="logs" role="tab" aria-selected="false">
+            <span class="stats-tab-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path><path d="M8 9h8"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>
+            </span>
+            <span class="stats-tab-label">日志审计</span>
+          </button>
+        </div>
+
+        <button id="stats-refresh-btn" class="geist-button-outline gap-2 stats-refresh-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 21h5v-5" />
+          </svg>
+          刷新数据
+        </button>
+      </div>
+    </div>
+
+    <section id="stats-panel-request" class="space-y-6">
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="stat-card stats-stat-card">
+          <div class="stat-value" id="stat-total-req">0</div>
+          <div class="stat-label">总请求数</div>
+        </div>
+        <div class="stat-card stats-stat-card">
+          <div class="stat-value stats-ok" id="stat-success-req">0</div>
+          <div class="stat-label">成功</div>
+        </div>
+        <div class="stat-card stats-stat-card">
+          <div class="stat-value stats-fail" id="stat-failed-req">0</div>
+          <div class="stat-label">失败</div>
+        </div>
+        <div class="stat-card stats-stat-card">
+          <div class="stat-value stats-rate" id="stat-success-rate">0%</div>
+          <div class="stat-label">成功率</div>
+        </div>
+      </div>
+
+
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <article class="chart-card">
+          <div class="chart-title">24小时请求趋势</div>
+          <div class="chart-container">
+            <canvas id="chart-hourly" height="220"></canvas>
+          </div>
+        </article>
+        <article class="chart-card">
+          <div class="chart-title">7天趋势（请求量 + 成功率）</div>
+          <div class="chart-container">
+            <canvas id="chart-daily" height="220"></canvas>
+          </div>
+        </article>
+      </div>
+      <div class="chart-card chart-card-models">
+        <div class="chart-title">模型调用分布 (Top 10)</div>
+        <div class="models-layout" aria-label="模型调用分布">
+          <div class="model-donut-wrap">
+            <canvas id="chart-models" height="280"></canvas>
+            <div class="model-donut-center" aria-live="polite">
+              <div id="models-center-main" class="model-donut-center-main">-</div>
+              <div id="models-center-sub" class="model-donut-center-sub">调用: 0 次 (0%)</div>
+            </div>
+          </div>
+          <div id="models-legend" class="model-donut-legend-panel" role="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="stats-panel-logs" class="space-y-4 hidden">
+      <div class="logs-head">
+        <div class="logs-summary" id="logs-summary">显示最近 0 条请求记录</div>
+        <button id="logs-clear-btn" class="logs-clear-btn">清空日志</button>
+      </div>
+      <div class="stats-logs-wrap rounded-lg overflow-hidden bg-white overflow-x-auto">
+        <table class="geist-table min-w-[860px]">
+          <thead>
+            <tr>
+              <th class="text-left w-36">时间</th>
+              <th class="text-left w-28">IP</th>
+              <th class="text-left w-40">模型</th>
+              <th class="text-center w-16">耗时</th>
+              <th class="text-center w-16">状态</th>
+              <th class="text-left w-32">Key</th>
+              <th class="text-left">错误</th>
+            </tr>
+          </thead>
+          <tbody id="logs-table-body"></tbody>
+        </table>
+        <div id="logs-empty" class="hidden table-empty">暂无日志记录</div>
+      </div>
+    </section>
+  </div>
+</main>

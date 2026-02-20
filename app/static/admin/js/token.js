@@ -1,3 +1,4 @@
+(() => {
 let apiKey = '';
 let allTokens = {};
 let flatTokens = [];
@@ -17,6 +18,7 @@ const byId = (id) => document.getElementById(id);
 const qsa = (selector) => document.querySelectorAll(selector);
 const DEFAULT_QUOTA_BASIC = 80;
 const DEFAULT_QUOTA_SUPER = 140;
+const tokenPage = {};
 
 function getDefaultQuotaForPool(pool) {
   return pool === 'ssoSuper' ? DEFAULT_QUOTA_SUPER : DEFAULT_QUOTA_BASIC;
@@ -108,10 +110,15 @@ function getPaginationData() {
 
 async function init() {
   apiKey = await ensureAdminKey();
-  if (apiKey === null) return;
+  if (apiKey === null) return false;
   setupEditPoolDefaults();
   setupConfirmDialog();
+  if (window.__setupBatchActionsDrag) {
+    window.__setupBatchActionsDrag(document.getElementById('batch-actions'));
+  }
+  setBatchActionsVisibility(0);
   loadData();
+  return true;
 }
 
 async function loadData() {
@@ -252,7 +259,7 @@ function renderTable() {
     // Checkbox (Center)
     const tdCheck = document.createElement('td');
     tdCheck.className = 'text-center';
-    tdCheck.innerHTML = `<input type="checkbox" class="checkbox" ${item._selected ? 'checked' : ''} onchange="toggleSelect(${originalIndex})">`;
+    tdCheck.innerHTML = `<input type="checkbox" class="checkbox" ${item._selected ? 'checked' : ''} onchange="__adminToken.toggleSelect(${originalIndex})">`;
 
     // Token (Left)
     const tdToken = document.createElement('td');
@@ -263,7 +270,7 @@ function renderTable() {
     tdToken.innerHTML = `
                 <div class="flex items-center gap-2">
                     <span class="font-mono text-xs text-gray-500" title="${item.token}">${tokenShort}</span>
-                    <button class="text-gray-400 hover:text-black transition-colors" onclick="copyToClipboard('${item.token}', this)">
+                    <button class="text-gray-400 hover:text-black transition-colors" onclick="__adminToken.copyToClipboard('${item.token}', this)">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                     </button>
                 </div>
@@ -302,13 +309,13 @@ function renderTable() {
     tdActions.className = 'text-center';
     tdActions.innerHTML = `
                 <div class="flex items-center justify-center gap-2">
-                     <button onclick="refreshStatus('${item.token}')" class="p-1 text-gray-400 hover:text-black rounded" title="刷新状态">
+                     <button onclick="__adminToken.refreshStatus('${item.token}')" class="p-1 text-gray-400 hover:text-black rounded" title="刷新状态">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                      </button>
-                     <button onclick="openEditModal(${originalIndex})" class="p-1 text-gray-400 hover:text-black rounded" title="编辑">
+                     <button onclick="__adminToken.openEditModal(${originalIndex})" class="p-1 text-gray-400 hover:text-black rounded" title="编辑">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                      </button>
-                     <button onclick="deleteToken(${originalIndex})" class="p-1 text-gray-400 hover:text-red-600 rounded" title="删除">
+                     <button onclick="__adminToken.deleteToken(${originalIndex})" class="p-1 text-gray-400 hover:text-red-600 rounded" title="删除">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                      </button>
                 </div>
@@ -341,7 +348,10 @@ function toggleSelectAll() {
 
 function selectAllFiltered() {
   const filtered = getFilteredTokens();
-  if (filtered.length === 0) return;
+  if (filtered.length === 0) {
+    updateSelectionState();
+    return;
+  }
   setSelectedForTokens(filtered, true);
   syncVisibleSelectionUI(true);
   updateSelectionState();
@@ -349,14 +359,20 @@ function selectAllFiltered() {
 
 function selectVisibleAll() {
   const visible = getVisibleTokens();
-  if (visible.length === 0) return;
+  if (visible.length === 0) {
+    updateSelectionState();
+    return;
+  }
   setSelectedForTokens(visible, true);
   syncVisibleSelectionUI(true);
   updateSelectionState();
 }
 
 function clearAllSelection() {
-  if (flatTokens.length === 0) return;
+  if (flatTokens.length === 0) {
+    updateSelectionState();
+    return;
+  }
   setSelectedForTokens(flatTokens, false);
   syncVisibleSelectionUI(false);
   updateSelectionState();
@@ -809,20 +825,42 @@ function updateBatchProgress() {
   if (stopBtn) stopBtn.classList.remove('hidden');
 }
 
+function setBatchActionsVisibility(selectedCount = null) {
+  const bar = byId('batch-actions');
+  if (!bar) return;
+
+  // Keep floating toolbar visible for quick batch actions even with zero selection.
+  const count = selectedCount === null ? countSelected(flatTokens) : selectedCount;
+  const shouldShow = isBatchProcessing || count >= 0;
+  bar.classList.toggle('hidden', !shouldShow);
+}
+
 function setActionButtonsState(selectedCount = null) {
   let count = selectedCount;
   if (count === null) {
     count = countSelected(flatTokens);
   }
   const disabled = isBatchProcessing;
+  const filteredCount = getFilteredTokens().length;
+  const visibleCount = getVisibleTokens().length;
+
+  const selectVisibleBtn = byId('btn-select-visible');
+  const selectAllBtn = byId('btn-select-all');
+  const clearBtn = byId('btn-clear-selection');
   const exportBtn = byId('btn-batch-export');
   const updateBtn = byId('btn-batch-update');
   const nsfwBtn = byId('btn-batch-nsfw');
   const deleteBtn = byId('btn-batch-delete');
+
+  if (selectVisibleBtn) selectVisibleBtn.disabled = disabled || visibleCount === 0;
+  if (selectAllBtn) selectAllBtn.disabled = disabled || filteredCount === 0;
+  if (clearBtn) clearBtn.disabled = disabled || count === 0;
   if (exportBtn) exportBtn.disabled = disabled || count === 0;
   if (updateBtn) updateBtn.disabled = disabled || count === 0;
   if (nsfwBtn) nsfwBtn.disabled = disabled || count === 0;
   if (deleteBtn) deleteBtn.disabled = disabled || count === 0;
+
+  setBatchActionsVisibility(count);
 }
 
 async function startBatchDelete() {
@@ -1120,6 +1158,56 @@ async function batchEnableNSFW() {
   }
 }
 
+window.__adminToken = {
+  openImportModal,
+  closeImportModal,
+  submitImport,
+  addToken,
+  filterByStatus,
+  toggleSelectAll,
+  toggleSelect,
+  selectVisibleAll,
+  selectAllFiltered,
+  clearAllSelection,
+  goPrevPage,
+  goNextPage,
+  changePageSize,
+  batchExport,
+  batchUpdate,
+  batchEnableNSFW,
+  batchDelete,
+  toggleBatchPause,
+  stopBatchRefresh,
+  closeEditModal,
+  saveEdit,
+  openEditModal,
+  deleteToken,
+  refreshStatus,
+  copyToClipboard
+};
 
 
-window.onload = init;
+
+let tokenInitStarted = false;
+async function initTokenPage() {
+  if (tokenInitStarted) return;
+  tokenInitStarted = true;
+  try {
+    const ok = await init();
+    if (ok === false) {
+      tokenInitStarted = false;
+    }
+  } catch (e) {
+    tokenInitStarted = false;
+    throw e;
+  }
+}
+
+if (window.__registerAdminPage) {
+  window.__registerAdminPage('token', initTokenPage);
+} else if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initTokenPage);
+} else {
+  initTokenPage();
+}
+})();

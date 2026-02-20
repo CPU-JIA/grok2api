@@ -18,6 +18,7 @@ from app.core.config import get_config
 from app.core.exceptions import AppException, UpstreamException, ValidationException
 from app.core.logger import logger
 from app.core.storage import DATA_DIR
+from app.services.proxy_pool import get_proxy_url, build_proxies
 from app.services.reverse.assets_upload import AssetsUploadReverse
 from app.services.reverse.utils.session import ResettableSession
 from app.services.grok.utils.locks import _get_upload_semaphore, _file_lock
@@ -140,8 +141,8 @@ class UploadService:
 
             lock_name = f"ul_url_{hashlib.sha1(url.encode()).hexdigest()[:16]}"
             timeout = float(get_config("asset.upload_timeout"))
-            proxy_url = get_config("proxy.base_proxy_url")
-            proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
+            proxy_url = await get_proxy_url()
+            proxies = build_proxies(proxy_url)
 
             lock_timeout = max(1, int(get_config("asset.upload_timeout")))
             async with _file_lock(lock_name, timeout=lock_timeout):
@@ -246,3 +247,5 @@ class UploadService:
 
 
 __all__ = ["UploadService"]
+
+

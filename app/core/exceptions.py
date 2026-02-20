@@ -109,6 +109,22 @@ class StreamIdleTimeoutError(Exception):
         super().__init__(f"Stream idle timeout after {idle_seconds}s")
 
 
+class StreamFirstTimeoutError(Exception):
+    """流首次响应超时错误"""
+
+    def __init__(self, first_seconds: float):
+        self.first_seconds = first_seconds
+        super().__init__(f"Stream first response timeout after {first_seconds}s")
+
+
+class StreamTotalTimeoutError(Exception):
+    """流总时长超时错误"""
+
+    def __init__(self, total_seconds: float):
+        self.total_seconds = total_seconds
+        super().__init__(f"Stream total timeout after {total_seconds}s")
+
+
 # ============= 异常处理器 =============
 
 
@@ -227,6 +243,8 @@ __all__ = [
     "AuthenticationException",
     "UpstreamException",
     "StreamIdleTimeoutError",
+    "StreamFirstTimeoutError",
+    "StreamTotalTimeoutError",
     "error_response",
     "register_exception_handlers",
 ]

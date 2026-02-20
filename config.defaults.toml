@@ -34,6 +34,12 @@ filter_tags = ["xaiartifact","xai:tool_usage_card","grok:render"]
 base_proxy_url = ""
 # 资源代理地址（代理静态资源如图片/视频）
 asset_proxy_url = ""
+# 代理池 URL（返回代理地址）
+pool_url = ""
+# 代理池刷新间隔（秒）
+pool_refresh_sec = 300
+# 403 代理池重试次数
+pool_403_max = 5
 # Cloudflare Clearance Cookie
 cf_clearance = ""
 # curl_cffi 浏览器指纹
@@ -76,6 +82,12 @@ save_delay_ms = 500
 usage_flush_interval_sec = 5
 # 多 worker 状态同步间隔（秒）
 reload_interval_sec = 30
+# 普通错误次数冷却（请求次数）
+cooldown_error_requests = 5
+# 429 有额度冷却（秒）
+cooldown_429_quota_sec = 3600
+# 429 无额度冷却（秒）
+cooldown_429_empty_sec = 36000
 
 # ==================== 缓存管理 ====================
 [cache]
@@ -91,14 +103,22 @@ concurrent = 50
 # Reverse 接口超时时间（秒）
 timeout = 60
 # 流式空闲超时时间（秒）
-stream_timeout = 60
+stream_timeout = 120
+# 流式首次响应超时（秒）
+stream_first_timeout = 30
+# 流式总超时（秒）
+stream_total_timeout = 600
 
 # ==================== 图像配置 ====================
 [image]
 # WebSocket 请求超时时间（秒）
 timeout = 60
 # WebSocket 流式空闲超时时间（秒）
-stream_timeout = 60
+stream_timeout = 120
+# WebSocket 流式首次响应超时（秒）
+stream_first_timeout = 30
+# WebSocket 流式总超时（秒）
+stream_total_timeout = 600
 # 中等图后等待最终图的超时秒数
 final_timeout = 15
 # 是否启用 NSFW
@@ -115,7 +135,11 @@ concurrent = 100
 # Reverse 接口超时时间（秒）
 timeout = 60
 # 流式空闲超时时间（秒）
-stream_timeout = 60
+stream_timeout = 120
+# 流式首次响应超时（秒）
+stream_first_timeout = 30
+# 流式总超时（秒）
+stream_total_timeout = 600
 
 # ==================== 语音配置 ====================
 [voice]
@@ -162,3 +186,43 @@ concurrent = 100
 batch_size = 50
 # Usage 请求超时时间（秒）
 timeout = 60
+
+# ==================== 会话管理 ====================
+[conversation]
+# 会话过期时间（秒）
+ttl_seconds = 86400
+# 每个 Token 最多保留会话数
+max_per_token = 50
+# 自动清理间隔（秒）
+cleanup_interval_sec = 600
+# 会话落盘合并延迟（毫秒）
+save_delay_ms = 500
+
+# ==================== 统计与日志 ====================
+[stats]
+# 小时统计保留数量
+hourly_keep = 48
+# 天统计保留数量
+daily_keep = 30
+# 统计写入合并延迟（毫秒）
+save_delay_ms = 500
+
+[logs]
+# 日志保留条数
+max_len = 2000
+# 日志保存延迟（毫秒）
+save_delay_ms = 500
+
+[api_keys]
+# API Key 保存延迟（毫秒）
+save_delay_ms = 500
+
+
+# ==================== MCP 配置 ====================
+[mcp]
+# 是否启用 MCP streamable-http 服务
+enabled = true
+# MCP 挂载路径
+mount_path = "/mcp"
+# MCP 访问令牌（为空时回退使用 app.api_key）
+api_key = ""

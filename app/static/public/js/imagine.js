@@ -5,6 +5,8 @@
   const promptInput = document.getElementById('promptInput');
   const ratioSelect = document.getElementById('ratioSelect');
   const concurrentSelect = document.getElementById('concurrentSelect');
+  const outputCountSelect = document.getElementById('outputCountSelect');
+  const outputFormatSelect = document.getElementById('outputFormatSelect');
   const autoScrollToggle = document.getElementById('autoScrollToggle');
   const autoDownloadToggle = document.getElementById('autoDownloadToggle');
   const reverseInsertToggle = document.getElementById('reverseInsertToggle');
@@ -174,7 +176,7 @@
 
   function estimateBase64Bytes(raw) {
     if (!raw) return null;
-    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    if (isHttpUrl(raw)) {
       return null;
     }
     if (raw.startsWith('/') && !isLikelyBase64(raw)) {
@@ -217,14 +219,87 @@
     }
   }
 
-  async function createImagineTask(prompt, ratio, authHeader, nsfwEnabled) {
+  function isHttpUrl(raw) {
+    if (!raw) return false;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return true;
+    if (raw.startsWith('/') && !isLikelyBase64(raw)) return true;
+    return false;
+  }
+
+  function guessExtFromUrl(url) {
+    try {
+      const parsed = new URL(url, window.location.origin);
+      const match = parsed.pathname.match(/\.(png|jpg|jpeg|gif|webp)$/i);
+      if (match) {
+        return match[1].toLowerCase() === 'jpeg' ? 'jpg' : match[1].toLowerCase();
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 'jpg';
+  }
+
+  async function saveBlobToFileSystem(blob, filename) {
+    if (!directoryHandle || !blob) return false;
+    try {
+      const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    } catch (e) {
+      console.error('File System API save failed:', e);
+      return false;
+    }
+  }
+
+  async function saveUrlToFileSystem(url, filename) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return false;
+      const blob = await response.blob();
+      return saveBlobToFileSystem(blob, filename);
+    } catch (e) {
+      console.error('File System API fetch failed:', e);
+      return false;
+    }
+  }
+
+  async function downloadFromUrl(url, filename) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return false;
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+      return true;
+    } catch (e) {
+      console.error('Download failed:', e);
+      return false;
+    }
+  }
+
+  async function createImagineTask(prompt, ratio, count, responseFormat, authHeader, nsfwEnabled) {
     const res = await fetch('/v1/public/imagine/start', {
       method: 'POST',
       headers: {
         ...buildAuthHeaders(authHeader),
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ prompt, aspect_ratio: ratio, nsfw: nsfwEnabled })
+      body: JSON.stringify({
+        prompt,
+        aspect_ratio: ratio,
+        nsfw: nsfwEnabled,
+        n: count,
+        response_format: responseFormat
+      })
     });
     if (!res.ok) {
       const text = await res.text();
@@ -234,10 +309,10 @@
     return data && data.task_id ? String(data.task_id) : '';
   }
 
-  async function createImagineTasks(prompt, ratio, concurrent, authHeader, nsfwEnabled) {
+  async function createImagineTasks(prompt, ratio, count, responseFormat, concurrent, authHeader, nsfwEnabled) {
     const tasks = [];
     for (let i = 0; i < concurrent; i++) {
-      const taskId = await createImagineTask(prompt, ratio, authHeader, nsfwEnabled);
+      const taskId = await createImagineTask(prompt, ratio, count, responseFormat, authHeader, nsfwEnabled);
       if (!taskId) {
         throw new Error('Missing task id');
       }
@@ -305,10 +380,10 @@
     document.body.removeChild(link);
   }
 
-  function appendImage(base64, meta) {
+  function appendImage(raw, meta) {
     if (!waterfall) return;
     if (autoFilterToggle && autoFilterToggle.checked) {
-      const bytes = estimateBase64Bytes(base64 || '');
+      const bytes = estimateBase64Bytes(raw || '');
       const minBytes = getFinalMinBytes();
       if (bytes !== null && bytes < minBytes) {
         return;
@@ -328,8 +403,26 @@
     img.loading = 'lazy';
     img.decoding = 'async';
     img.alt = meta && meta.sequence ? `image-${meta.sequence}` : 'image';
-    const mime = inferMime(base64);
-    const dataUrl = `data:${mime};base64,${base64}`;
+    const isDataUrl = typeof raw === 'string' && raw.startsWith('data:');
+    const isUrl = isHttpUrl(raw);
+    const looksLikeBase64 = typeof raw === 'string' && isLikelyBase64(raw);
+    let mime = 'image/jpeg';
+    let dataUrl = '';
+    let base64Payload = '';
+    if (isDataUrl) {
+      dataUrl = raw;
+      const comma = raw.indexOf(',');
+      base64Payload = comma >= 0 ? raw.slice(comma + 1) : '';
+      mime = inferMime(base64Payload);
+    } else if (isUrl) {
+      dataUrl = raw;
+    } else if (looksLikeBase64) {
+      mime = inferMime(raw);
+      base64Payload = raw;
+      dataUrl = `data:${mime};base64,${raw}`;
+    } else {
+      dataUrl = raw || '';
+    }
     img.src = dataUrl;
 
     const metaBar = document.createElement('div');
@@ -381,15 +474,25 @@
     if (autoDownloadToggle && autoDownloadToggle.checked) {
       const timestamp = Date.now();
       const seq = meta && meta.sequence ? meta.sequence : 'unknown';
-      const ext = mime === 'image/png' ? 'png' : 'jpg';
+      const ext = isUrl ? guessExtFromUrl(dataUrl) : (mime === 'image/png' ? 'png' : 'jpg');
       const filename = `imagine_${timestamp}_${seq}.${ext}`;
-      
+
       if (useFileSystemAPI && directoryHandle) {
-        saveToFileSystem(base64, filename).catch(() => {
-          downloadImage(base64, filename);
-        });
+        if (isUrl) {
+          saveUrlToFileSystem(dataUrl, filename).catch(() => {
+            downloadFromUrl(dataUrl, filename);
+          });
+        } else {
+          saveToFileSystem(base64Payload, filename).catch(() => {
+            downloadImage(base64Payload, filename);
+          });
+        }
       } else {
-        downloadImage(base64, filename);
+        if (isUrl) {
+          downloadFromUrl(dataUrl, filename);
+        } else {
+          downloadImage(base64Payload, filename);
+        }
       }
     }
   }
@@ -546,11 +649,15 @@
       const isFinal = data.type === 'image_generation.completed' || data.stage === 'final';
       upsertStreamImage(payload, data, imageId, isFinal);
     } else if (data.type === 'image') {
+      const payload = data.b64_json || data.url || data.image;
+      if (!payload) {
+        return;
+      }
       imageCount += 1;
       updateCount(imageCount);
       updateLatency(data.elapsed_ms);
       updateError('');
-      appendImage(data.b64_json, data);
+      appendImage(payload, data);
     } else if (data.type === 'status') {
       if (data.status === 'running') {
         setStatus('connected', '生成中');
@@ -670,14 +777,18 @@
 
     const authHeader = await ensurePublicKey();
     if (authHeader === null) {
-      toast('请先配置 Public Key', 'error');
-      window.location.href = '/login';
+      const isAdmin = Boolean(window.__adminSpa__) || window.location.pathname.startsWith('/admin');
+      toast(isAdmin ? '请先登录后台' : '请先配置 Public Key', 'error');
+      window.location.href = isAdmin ? '/admin/login' : '/login';
       return;
     }
     const rawPublicKey = normalizeAuthHeader(authHeader);
 
     const concurrent = concurrentSelect ? parseInt(concurrentSelect.value, 10) : 1;
     const ratio = ratioSelect ? ratioSelect.value : '2:3';
+    const outputCountRaw = outputCountSelect ? parseInt(outputCountSelect.value, 10) : 6;
+    const outputCount = Number.isFinite(outputCountRaw) ? outputCountRaw : 6;
+    const responseFormat = outputFormatSelect ? outputFormatSelect.value : 'b64_json';
     const nsfwEnabled = nsfwSelect ? nsfwSelect.value === 'true' : true;
     
     if (isRunning) {
@@ -696,7 +807,15 @@
 
     let taskIds = [];
     try {
-      taskIds = await createImagineTasks(prompt, ratio, concurrent, authHeader, nsfwEnabled);
+      taskIds = await createImagineTasks(
+        prompt,
+        ratio,
+        outputCount,
+        responseFormat,
+        concurrent,
+        authHeader,
+        nsfwEnabled
+      );
     } catch (e) {
       setStatus('error', '创建任务失败');
       startBtn.disabled = false;
@@ -794,12 +913,17 @@
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const prompt = promptOverride || (promptInput ? promptInput.value.trim() : '');
     const ratio = ratioSelect ? ratioSelect.value : '2:3';
+    const outputCountRaw = outputCountSelect ? parseInt(outputCountSelect.value, 10) : 6;
+    const outputCount = Number.isFinite(outputCountRaw) ? outputCountRaw : 6;
+    const responseFormat = outputFormatSelect ? outputFormatSelect.value : 'b64_json';
     const nsfwEnabled = nsfwSelect ? nsfwSelect.value === 'true' : true;
     const payload = {
       type: 'start',
       prompt,
       aspect_ratio: ratio,
-      nsfw: nsfwEnabled
+      nsfw: nsfwEnabled,
+      n: outputCount,
+      response_format: responseFormat
     };
     ws.send(JSON.stringify(payload));
     updateError('');

@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends
+import time
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.core.auth import verify_public_key
 from app.core.exceptions import AppException
 from app.services.grok.services.voice import VoiceService
 from app.services.token.manager import get_token_manager
+from app.services.request_logger import request_logger
+from app.services.request_stats import request_stats
 
 router = APIRouter()
 
@@ -22,11 +25,41 @@ class VoiceTokenResponse(BaseModel):
     response_model=VoiceTokenResponse,
 )
 async def public_voice_token(
+    raw_request: Request,
     voice: str = "ara",
     personality: str = "assistant",
     speed: float = 1.0,
 ):
     """获取 Grok Voice Mode (LiveKit) Token"""
+    start_time = time.time()
+    model_id = "grok-voice-livekit"
+
+    def client_ip() -> str:
+        for header in ("x-forwarded-for", "x-real-ip", "cf-connecting-ip"):
+            value = raw_request.headers.get(header)
+            if value:
+                return value.split(",")[0].strip()
+        if raw_request.client:
+            return raw_request.client.host or ""
+        return ""
+
+    async def record(success: bool, status: int, error: str = ""):
+        duration_ms = int((time.time() - start_time) * 1000)
+        try:
+            await request_stats.record(model_id, success=success)
+            await request_logger.log(
+                model=model_id,
+                status=status,
+                duration_ms=duration_ms,
+                ip=client_ip(),
+                key_name="Public",
+                key_masked="",
+                error=error,
+                stream=False,
+            )
+        except Exception:
+            pass
+
     token_mgr = await get_token_manager()
     sso_token = None
     for pool_name in ("ssoBasic", "ssoSuper"):
@@ -35,11 +68,13 @@ async def public_voice_token(
             break
 
     if not sso_token:
-        raise AppException(
+        err = AppException(
             "No available tokens for voice mode",
             code="no_token",
             status_code=503,
         )
+        await record(False, err.status_code, error=str(err))
+        raise err
 
     service = VoiceService()
     try:
@@ -57,6 +92,7 @@ async def public_voice_token(
                 status_code=502,
             )
 
+        await record(True, 200)
         return VoiceTokenResponse(
             token=token,
             url="wss://livekit.grok.com",
@@ -66,7 +102,9 @@ async def public_voice_token(
 
     except Exception as e:
         if isinstance(e, AppException):
+            await record(False, e.status_code, error=str(e))
             raise
+        await record(False, 500, error=str(e))
         raise AppException(
             f"Voice token error: {str(e)}",
             code="voice_error",

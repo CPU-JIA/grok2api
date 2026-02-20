@@ -18,17 +18,23 @@ from app.core.exceptions import (
     ValidationException,
     ErrorType,
     StreamIdleTimeoutError,
+    StreamFirstTimeoutError,
+    StreamTotalTimeoutError,
 )
 from app.services.grok.services.model import ModelService
 from app.services.token import get_token_manager, EffortType
 from app.services.grok.utils.stream import wrap_stream_with_usage
 from app.services.grok.utils.process import (
     BaseProcessor,
-    _with_idle_timeout,
+    _with_stream_timeouts,
     _normalize_line,
     _is_http2_error,
 )
-from app.services.grok.utils.retry import rate_limited
+from app.services.grok.utils.retry import (
+    rate_limited,
+    extract_status_code,
+    rate_limit_has_quota,
+)
 from app.services.reverse.app_chat import AppChatReverse
 from app.services.reverse.media_post import MediaPostReverse
 from app.services.reverse.video_upscale import VideoUpscaleReverse
@@ -352,9 +358,28 @@ class VideoService:
             except UpstreamException as e:
                 last_error = e
                 if rate_limited(e):
-                    await token_mgr.mark_rate_limited(token)
+                    has_quota = rate_limit_has_quota(e)
+                    await token_mgr.apply_cooldown(
+                        token,
+                        429,
+                        has_quota=has_quota,
+                        reason="rate_limit",
+                    )
                     logger.warning(
                         f"Token {token[:10]}... rate limited (429), "
+                        f"trying next token (attempt {attempt + 1}/{max_token_retries})"
+                    )
+                    continue
+
+                status = extract_status_code(e)
+                if status and status not in (401, 403):
+                    await token_mgr.apply_cooldown(
+                        token,
+                        int(status),
+                        reason=f"status_{status}",
+                    )
+                    logger.warning(
+                        f"Token {token[:10]}... status={status}, "
                         f"trying next token (attempt {attempt + 1}/{max_token_retries})"
                     )
                     continue
@@ -446,9 +471,17 @@ class VideoStreamProcessor(BaseProcessor):
     ) -> AsyncGenerator[str, None]:
         """Process video stream response."""
         idle_timeout = get_config("video.stream_timeout")
+        first_timeout = get_config("video.stream_first_timeout", 0)
+        total_timeout = get_config("video.stream_total_timeout", 0)
 
         try:
-            async for line in _with_idle_timeout(response, idle_timeout, self.model):
+            async for line in _with_stream_timeouts(
+                response,
+                first_timeout=first_timeout,
+                idle_timeout=idle_timeout,
+                total_timeout=total_timeout,
+                model=self.model,
+            ):
                 line = _normalize_line(line)
                 if not line:
                     continue
@@ -525,6 +558,26 @@ class VideoStreamProcessor(BaseProcessor):
         except asyncio.CancelledError:
             logger.debug(
                 "Video stream cancelled by client", extra={"model": self.model}
+            )
+        except StreamFirstTimeoutError as e:
+            raise UpstreamException(
+                message=f"Video stream first response timeout after {e.first_seconds}s",
+                status_code=504,
+                details={
+                    "error": str(e),
+                    "type": "stream_first_timeout",
+                    "first_seconds": e.first_seconds,
+                },
+            )
+        except StreamTotalTimeoutError as e:
+            raise UpstreamException(
+                message=f"Video stream total timeout after {e.total_seconds}s",
+                status_code=504,
+                details={
+                    "error": str(e),
+                    "type": "stream_total_timeout",
+                    "total_seconds": e.total_seconds,
+                },
             )
         except StreamIdleTimeoutError as e:
             raise UpstreamException(
@@ -608,9 +661,17 @@ class VideoCollectProcessor(BaseProcessor):
         response_id = ""
         content = ""
         idle_timeout = get_config("video.stream_timeout")
+        first_timeout = get_config("video.stream_first_timeout", 0)
+        total_timeout = get_config("video.stream_total_timeout", 0)
 
         try:
-            async for line in _with_idle_timeout(response, idle_timeout, self.model):
+            async for line in _with_stream_timeouts(
+                response,
+                first_timeout=first_timeout,
+                idle_timeout=idle_timeout,
+                total_timeout=total_timeout,
+                model=self.model,
+            ):
                 line = _normalize_line(line)
                 if not line:
                     continue
@@ -639,6 +700,14 @@ class VideoCollectProcessor(BaseProcessor):
         except asyncio.CancelledError:
             logger.debug(
                 "Video collect cancelled by client", extra={"model": self.model}
+            )
+        except StreamFirstTimeoutError as e:
+            logger.warning(
+                f"Video collect first response timeout: {e}", extra={"model": self.model}
+            )
+        except StreamTotalTimeoutError as e:
+            logger.warning(
+                f"Video collect total timeout: {e}", extra={"model": self.model}
             )
         except StreamIdleTimeoutError as e:
             logger.warning(

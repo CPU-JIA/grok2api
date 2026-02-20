@@ -1,0 +1,66 @@
+<main class="space-y-6 flex-1 container mx-auto max-w-6xl px-6 py-8 fade-in">
+  <div class="space-y-6">
+    <div class="sessions-topbar">
+      <div class="sessions-title-wrap">
+        <h2 class="page-title">会话管理</h2>
+        <p class="page-subtitle">管理 Grok 对话会话上下文，支持哈希匹配状态追踪。</p>
+      </div>
+      <div class="sessions-actions" role="group" aria-label="会话操作">
+        <button id="sessions-refresh-btn" class="geist-button-outline gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 21h5v-5" />
+          </svg>
+          刷新
+        </button>
+        <button id="sessions-clear-btn" class="geist-button-danger gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          清空会话
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="stat-card session-stat-card">
+        <div class="stat-value" id="session-stat-total">0</div>
+        <div class="stat-label">会话总数</div>
+      </div>
+      <div class="stat-card session-stat-card">
+        <div class="stat-value text-emerald-600" id="session-stat-tokens">0</div>
+        <div class="stat-label">活跃 Token</div>
+      </div>
+      <div class="stat-card session-stat-card">
+        <div class="stat-value text-sky-600" id="session-stat-avg">0</div>
+        <div class="stat-label">平均消息数</div>
+      </div>
+      <div class="stat-card session-stat-card">
+        <div class="stat-value text-amber-600" id="session-stat-ttl">0</div>
+        <div class="stat-label">TTL (小时)</div>
+      </div>
+    </div>
+
+    <div class="sessions-table-wrap rounded-lg overflow-hidden bg-white mb-2 overflow-x-auto">
+      <table class="geist-table min-w-[980px]">
+        <thead>
+          <tr>
+            <th class="text-left w-52">会话 ID</th>
+            <th class="text-left w-52">Grok 会话</th>
+            <th class="text-center w-24">哈希匹配</th>
+            <th class="text-left w-28">Token</th>
+            <th class="text-center w-24">消息数</th>
+            <th class="text-left w-44">最后活跃</th>
+            <th class="text-center w-24">TTL</th>
+            <th class="text-center w-24">操作</th>
+          </tr>
+        </thead>
+        <tbody id="sessions-table-body"></tbody>
+      </table>
+      <div id="sessions-empty" class="hidden table-empty">暂无会话记录</div>
+    </div>
+  </div>
+</main>

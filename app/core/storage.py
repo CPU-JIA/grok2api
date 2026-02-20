@@ -139,6 +139,16 @@ class BaseStorage(abc.ABC):
         """关闭资源"""
         pass
 
+    @abc.abstractmethod
+    async def load_json(self, name: str, default: Any = None) -> Any:
+        """加载 JSON 数据"""
+        pass
+
+    @abc.abstractmethod
+    async def save_json(self, name: str, data: Any):
+        """保存 JSON 数据"""
+        pass
+
     @asynccontextmanager
     async def acquire_lock(self, name: str, timeout: int = 10):
         """
@@ -286,6 +296,34 @@ class LocalStorage(BaseStorage):
     async def close(self):
         pass
 
+    async def load_json(self, name: str, default: Any = None) -> Any:
+        filename = name if name.endswith(".json") else f"{name}.json"
+        path = DATA_DIR / filename
+        if not path.exists():
+            return default
+        try:
+            async with aiofiles.open(path, "rb") as f:
+                content = await f.read()
+                if not content:
+                    return default
+                return json_loads(content)
+        except Exception as e:
+            logger.error(f"LocalStorage: 加载 JSON 失败 ({filename}): {e}")
+            return default
+
+    async def save_json(self, name: str, data: Any):
+        filename = name if name.endswith(".json") else f"{name}.json"
+        path = DATA_DIR / filename
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temp_path = path.with_suffix(".tmp")
+            async with aiofiles.open(temp_path, "wb") as f:
+                await f.write(orjson.dumps(data, option=orjson.OPT_INDENT_2))
+            os.replace(temp_path, path)
+        except Exception as e:
+            logger.error(f"LocalStorage: 保存 JSON 失败 ({filename}): {e}")
+            raise StorageError(f"保存 JSON 失败: {e}")
+
 
 class RedisStorage(BaseStorage):
     """
@@ -311,6 +349,7 @@ class RedisStorage(BaseStorage):
         self.prefix_pool_set = "grok2api:pool:"  # Set: pool -> token_ids
         self.prefix_token_hash = "grok2api:token:"  # Hash: token_id -> token_data
         self.lock_prefix = "grok2api:lock:"
+        self.prefix_json_key = "grok2api:json:"
 
     @asynccontextmanager
     async def acquire_lock(self, name: str, timeout: int = 10):
@@ -543,6 +582,25 @@ class RedisStorage(BaseStorage):
             # 忽略关闭时的 Event loop is closed 错误
             pass
 
+    async def load_json(self, name: str, default: Any = None) -> Any:
+        key = f"{self.prefix_json_key}{name}"
+        try:
+            raw = await self.redis.get(key)
+            if raw is None:
+                return default
+            return json_loads(raw)
+        except Exception as e:
+            logger.error(f"RedisStorage: 加载 JSON 失败 ({name}): {e}")
+            return default
+
+    async def save_json(self, name: str, data: Any):
+        key = f"{self.prefix_json_key}{name}"
+        try:
+            await self.redis.set(key, json_dumps(data))
+        except Exception as e:
+            logger.error(f"RedisStorage: 保存 JSON 失败 ({name}): {e}")
+            raise
+
 
 class SQLStorage(BaseStorage):
     """
@@ -617,6 +675,18 @@ class SQLStorage(BaseStorage):
                         PRIMARY KEY (section, key_name)
                     )
                 """)
+                )
+
+                # JSON 存储表
+                await conn.execute(
+                    text(
+                        """
+                    CREATE TABLE IF NOT EXISTS app_json (
+                        key_name VARCHAR(128) PRIMARY KEY,
+                        value TEXT
+                    )
+                """
+                    )
                 )
 
                 # 索引
@@ -1266,6 +1336,48 @@ class SQLStorage(BaseStorage):
     async def close(self):
         await self.engine.dispose()
 
+    async def load_json(self, name: str, default: Any = None) -> Any:
+        await self._ensure_schema()
+        from sqlalchemy import text
+
+        try:
+            async with self.async_session() as session:
+                res = await session.execute(
+                    text("SELECT value FROM app_json WHERE key_name=:k"),
+                    {"k": name},
+                )
+                row = res.fetchone()
+                if not row:
+                    return default
+                val_str = row[0]
+                try:
+                    return json_loads(val_str)
+                except Exception:
+                    return val_str
+        except Exception as e:
+            logger.error(f"SQLStorage: 加载 JSON 失败 ({name}): {e}")
+            return default
+
+    async def save_json(self, name: str, data: Any):
+        await self._ensure_schema()
+        from sqlalchemy import text
+
+        try:
+            async with self.async_session() as session:
+                val_str = json_dumps(data)
+                await session.execute(
+                    text("DELETE FROM app_json WHERE key_name=:k"),
+                    {"k": name},
+                )
+                await session.execute(
+                    text("INSERT INTO app_json (key_name, value) VALUES (:k, :v)"),
+                    {"k": name, "v": val_str},
+                )
+                await session.commit()
+        except Exception as e:
+            logger.error(f"SQLStorage: 保存 JSON 失败 ({name}): {e}")
+            raise
+
 
 class StorageFactory:
     """存储后端工厂"""
@@ -1296,8 +1408,39 @@ class StorageFactory:
         if cls._instance:
             return cls._instance
 
-        storage_type = os.getenv("SERVER_STORAGE_TYPE", "local").lower()
-        storage_url = os.getenv("SERVER_STORAGE_URL", "")
+        raw_type = os.getenv("SERVER_STORAGE_TYPE", "").strip().lower()
+        storage_url = os.getenv("SERVER_STORAGE_URL", "").strip()
+        storage_type = raw_type or "auto"
+
+        redis_fallback_url = (
+            os.getenv("REDIS_URL", "").strip()
+            or os.getenv("REDIS_URI", "").strip()
+            or os.getenv("CACHE_REDIS_URL", "").strip()
+        )
+        sql_fallback_url = (
+            os.getenv("DATABASE_URL", "").strip()
+            or os.getenv("MYSQL_URL", "").strip()
+            or os.getenv("POSTGRES_URL", "").strip()
+        )
+
+        # auto: 默认本地。若存在 Redis 配置则优先 Redis，其次 SERVER_STORAGE_URL/SQL URL。
+        if storage_type in ("auto", ""):
+            resolved_url = storage_url or redis_fallback_url or sql_fallback_url
+            if resolved_url:
+                storage_url = resolved_url
+                lowered = storage_url.lower()
+                if lowered.startswith(("redis://", "rediss://")):
+                    storage_type = "redis"
+                elif lowered.startswith(("mysql://", "mariadb://", "postgres://", "postgresql://", "pgsql://")):
+                    storage_type = "mysql" if lowered.startswith(("mysql://", "mariadb://")) else "pgsql"
+                else:
+                    storage_type = "local"
+            else:
+                storage_type = "local"
+        elif storage_type == "redis" and not storage_url:
+            storage_url = redis_fallback_url
+        elif storage_type in ("mysql", "pgsql") and not storage_url:
+            storage_url = sql_fallback_url
 
         logger.info(f"StorageFactory: 初始化存储后端: {storage_type}")
 

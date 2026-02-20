@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 
 router = APIRouter()
 STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
+ADMIN_APP = STATIC_DIR / "admin/pages/app.html"
 
 
 @router.get("/admin", include_in_schema=False)
@@ -17,16 +18,6 @@ async def admin_login():
     return FileResponse(STATIC_DIR / "admin/pages/login.html")
 
 
-@router.get("/admin/config", include_in_schema=False)
-async def admin_config():
-    return FileResponse(STATIC_DIR / "admin/pages/config.html")
-
-
-@router.get("/admin/cache", include_in_schema=False)
-async def admin_cache():
-    return FileResponse(STATIC_DIR / "admin/pages/cache.html")
-
-
-@router.get("/admin/token", include_in_schema=False)
-async def admin_token():
-    return FileResponse(STATIC_DIR / "admin/pages/token.html")
+@router.get("/admin/{path:path}", include_in_schema=False)
+async def admin_app(path: str):
+    return FileResponse(ADMIN_APP)

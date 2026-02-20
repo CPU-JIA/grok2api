@@ -65,6 +65,9 @@ class TokenInfo(BaseModel):
 
     # 冷却管理
     last_sync_at: Optional[int] = None  # 上次同步时间
+    cooldown_until: Optional[int] = None  # 冷却截止时间（毫秒）
+    cooldown_until_seq: Optional[int] = None  # 次数冷却截止序列
+    cooldown_reason: Optional[str] = None  # 冷却原因
 
     # 扩展
     tags: List[str] = Field(default_factory=list)
@@ -127,6 +130,9 @@ class TokenInfo(BaseModel):
         self.status = TokenStatus.ACTIVE
         self.fail_count = 0
         self.last_fail_reason = None
+        self.cooldown_until = None
+        self.cooldown_until_seq = None
+        self.cooldown_reason = None
 
     def record_fail(
         self,
@@ -166,6 +172,16 @@ class TokenInfo(BaseModel):
         """检查是否需要刷新配额"""
         if self.status != TokenStatus.COOLING:
             return False
+
+        # 次数冷却不触发刷新
+        if self.cooldown_until_seq:
+            return False
+
+        # 时间冷却未到期不触发刷新
+        if self.cooldown_until:
+            now = int(datetime.now().timestamp() * 1000)
+            if now < self.cooldown_until:
+                return False
 
         if self.last_sync_at is None:
             return True

@@ -10,6 +10,8 @@ from pydantic import BaseModel
 
 from app.core.auth import verify_public_key
 from app.core.logger import logger
+from app.services.request_logger import request_logger
+from app.services.request_stats import request_stats
 from app.services.grok.services.video import VideoService
 from app.services.grok.services.model import ModelService
 
@@ -31,6 +33,27 @@ _VIDEO_RATIO_MAP = {
     "2:3": "2:3",
     "1:1": "1:1",
 }
+
+
+def _get_client_ip(req: Request) -> str:
+    for header in ("x-forwarded-for", "x-real-ip", "cf-connecting-ip"):
+        value = req.headers.get(header)
+        if value:
+            return value.split(",")[0].strip()
+    if req.client:
+        return req.client.host or ""
+    return ""
+
+
+def _extract_status_code(exc: Exception, default: int = 500) -> int:
+    status = getattr(exc, "status_code", None)
+    details = getattr(exc, "details", None)
+    if status is None and isinstance(details, dict):
+        status = details.get("status")
+    try:
+        return int(status or default)
+    except Exception:
+        return default
 
 
 async def _clean_sessions(now: float) -> None:
@@ -134,61 +157,87 @@ class VideoStartRequest(BaseModel):
 
 
 @router.post("/video/start", dependencies=[Depends(verify_public_key)])
-async def public_video_start(data: VideoStartRequest):
-    prompt = (data.prompt or "").strip()
-    if not prompt:
-        raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+async def public_video_start(raw_request: Request, data: VideoStartRequest):
+    start_time = time.time()
+    model_id = "grok-imagine-1.0-video"
+    client_ip = _get_client_ip(raw_request)
 
-    aspect_ratio = _normalize_ratio(data.aspect_ratio)
-    if not aspect_ratio:
-        raise HTTPException(
-            status_code=400,
-            detail="aspect_ratio must be one of ['16:9','9:16','3:2','2:3','1:1']",
-        )
+    async def record(success: bool, status: int, error: str = ""):
+        duration_ms = int((time.time() - start_time) * 1000)
+        try:
+            await request_stats.record(model_id, success=success)
+            await request_logger.log(
+                model=model_id,
+                status=status,
+                duration_ms=duration_ms,
+                ip=client_ip,
+                key_name="Public",
+                key_masked="",
+                error=error,
+                stream=False,
+            )
+        except Exception:
+            pass
 
-    video_length = int(data.video_length or 6)
-    if video_length not in (6, 10, 15):
-        raise HTTPException(
-            status_code=400, detail="video_length must be 6, 10, or 15 seconds"
-        )
+    try:
+        prompt = (data.prompt or "").strip()
+        if not prompt:
+            raise HTTPException(status_code=400, detail="Prompt cannot be empty")
 
-    resolution_name = str(data.resolution_name or "480p")
-    if resolution_name not in ("480p", "720p"):
-        raise HTTPException(
-            status_code=400,
-            detail="resolution_name must be one of ['480p','720p']",
-        )
-
-    preset = str(data.preset or "normal")
-    if preset not in ("fun", "normal", "spicy", "custom"):
-        raise HTTPException(
-            status_code=400,
-            detail="preset must be one of ['fun','normal','spicy','custom']",
-        )
-
-    image_url = (data.image_url or "").strip() or None
-    if image_url:
-        _validate_image_url(image_url)
-
-    reasoning_effort = (data.reasoning_effort or "").strip() or None
-    if reasoning_effort:
-        allowed = {"none", "minimal", "low", "medium", "high", "xhigh"}
-        if reasoning_effort not in allowed:
+        aspect_ratio = _normalize_ratio(data.aspect_ratio)
+        if not aspect_ratio:
             raise HTTPException(
                 status_code=400,
-                detail=f"reasoning_effort must be one of {sorted(allowed)}",
+                detail="aspect_ratio must be one of ['16:9','9:16','3:2','2:3','1:1']",
             )
 
-    task_id = await _new_session(
-        prompt,
-        aspect_ratio,
-        video_length,
-        resolution_name,
-        preset,
-        image_url,
-        reasoning_effort,
-    )
-    return {"task_id": task_id, "aspect_ratio": aspect_ratio}
+        video_length = int(data.video_length or 6)
+        if video_length not in (6, 10, 15):
+            raise HTTPException(
+                status_code=400, detail="video_length must be 6, 10, or 15 seconds"
+            )
+
+        resolution_name = str(data.resolution_name or "480p")
+        if resolution_name not in ("480p", "720p"):
+            raise HTTPException(
+                status_code=400,
+                detail="resolution_name must be one of ['480p','720p']",
+            )
+
+        preset = str(data.preset or "normal")
+        if preset not in ("fun", "normal", "spicy", "custom"):
+            raise HTTPException(
+                status_code=400,
+                detail="preset must be one of ['fun','normal','spicy','custom']",
+            )
+
+        image_url = (data.image_url or "").strip() or None
+        if image_url:
+            _validate_image_url(image_url)
+
+        reasoning_effort = (data.reasoning_effort or "").strip() or None
+        if reasoning_effort:
+            allowed = {"none", "minimal", "low", "medium", "high", "xhigh"}
+            if reasoning_effort not in allowed:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"reasoning_effort must be one of {sorted(allowed)}",
+                )
+
+        task_id = await _new_session(
+            prompt,
+            aspect_ratio,
+            video_length,
+            resolution_name,
+            preset,
+            image_url,
+            reasoning_effort,
+        )
+        await record(True, 200)
+        return {"task_id": task_id, "aspect_ratio": aspect_ratio}
+    except Exception as exc:
+        await record(False, _extract_status_code(exc), error=str(exc))
+        raise
 
 
 @router.get("/video/sse")
@@ -205,13 +254,38 @@ async def public_video_sse(request: Request, task_id: str = Query("")):
     image_url = session.get("image_url")
     reasoning_effort = session.get("reasoning_effort")
 
-    async def event_stream():
+    start_time = time.time()
+    client_ip = _get_client_ip(request)
+    model_id = "grok-imagine-1.0-video"
+
+    async def record(success: bool, status: int, error: str = "", stream: bool = True):
+        duration_ms = int((time.time() - start_time) * 1000)
         try:
-            model_id = "grok-imagine-1.0-video"
+            await request_stats.record(model_id, success=success)
+            await request_logger.log(
+                model=model_id,
+                status=status,
+                duration_ms=duration_ms,
+                ip=client_ip,
+                key_name="Public",
+                key_masked="",
+                error=error,
+                stream=stream,
+            )
+        except Exception:
+            pass
+
+    async def event_stream():
+        ok = False
+        status = 200
+        err = ""
+        try:
             model_info = ModelService.get(model_id)
             if not model_info or not model_info.is_video:
+                status = 503
+                err = "Video model is not available."
                 payload = {
-                    "error": "Video model is not available.",
+                    "error": err,
                     "code": "model_not_supported",
                 }
                 yield f"data: {orjson.dumps(payload).decode()}\n\n"
@@ -244,14 +318,20 @@ async def public_video_sse(request: Request, task_id: str = Query("")):
 
             async for chunk in stream:
                 if await request.is_disconnected():
+                    ok = True
                     break
                 yield chunk
-        except Exception as e:
-            logger.warning(f"Public video SSE error: {e}")
-            payload = {"error": str(e), "code": "internal_error"}
+
+            ok = True
+        except Exception as exc:
+            status = _extract_status_code(exc)
+            err = str(exc)
+            logger.warning(f"Public video SSE error: {exc}")
+            payload = {"error": err, "code": "internal_error"}
             yield f"data: {orjson.dumps(payload).decode()}\n\n"
             yield "data: [DONE]\n\n"
         finally:
+            await record(ok, status if ok else status or 500, error=err, stream=True)
             await _drop_session(task_id)
 
     return StreamingResponse(
@@ -266,9 +346,35 @@ class VideoStopRequest(BaseModel):
 
 
 @router.post("/video/stop", dependencies=[Depends(verify_public_key)])
-async def public_video_stop(data: VideoStopRequest):
-    removed = await _drop_sessions(data.task_ids or [])
-    return {"status": "success", "removed": removed}
+async def public_video_stop(raw_request: Request, data: VideoStopRequest):
+    start_time = time.time()
+    client_ip = _get_client_ip(raw_request)
+    model_id = "grok-imagine-1.0-video"
+
+    async def record(success: bool, status: int, error: str = ""):
+        duration_ms = int((time.time() - start_time) * 1000)
+        try:
+            await request_stats.record(model_id, success=success)
+            await request_logger.log(
+                model=model_id,
+                status=status,
+                duration_ms=duration_ms,
+                ip=client_ip,
+                key_name="Public",
+                key_masked="",
+                error=error,
+                stream=False,
+            )
+        except Exception:
+            pass
+
+    try:
+        removed = await _drop_sessions(data.task_ids or [])
+        await record(True, 200)
+        return {"status": "success", "removed": removed}
+    except Exception as exc:
+        await record(False, _extract_status_code(exc), error=str(exc))
+        raise
 
 
 __all__ = ["router"]

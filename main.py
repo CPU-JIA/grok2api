@@ -37,6 +37,7 @@ from app.api.v1.image import router as image_router  # noqa: E402
 from app.api.v1.files import router as files_router  # noqa: E402
 from app.api.v1.models import router as models_router  # noqa: E402
 from app.services.token import get_scheduler  # noqa: E402
+from app.services.mcp import create_mcp_http_app  # noqa: E402
 from app.api.v1.admin_api import router as admin_router
 from app.api.v1.public_api import router as public_router
 from app.api.pages import router as pages_router
@@ -65,6 +66,31 @@ async def lifespan(app: FastAPI):
     logger.info(f"Platform: {platform.system()} {platform.release()}")
     logger.info(f"Python: {sys.version.split()[0]}")
 
+    # 3.1 初始化管理服务
+    from app.services.api_keys import api_key_manager
+    from app.services.request_stats import request_stats
+    from app.services.request_logger import request_logger
+    from app.services.conversation_manager import conversation_manager
+    from app.services.proxy_pool import proxy_pool
+
+    await api_key_manager.init()
+    await request_stats.init()
+    await request_logger.init()
+    await conversation_manager.init()
+    await proxy_pool.start()
+
+    # 3.2 初始化 MCP 子应用生命周期
+    mcp_lifespan_ctx = None
+    mcp_http_app = getattr(app.state, "mcp_http_app", None)
+    if mcp_http_app is not None and hasattr(mcp_http_app, "lifespan"):
+        try:
+            mcp_lifespan_ctx = mcp_http_app.lifespan(app)
+            await mcp_lifespan_ctx.__aenter__()
+            app.state.mcp_lifespan_ctx = mcp_lifespan_ctx
+            logger.info("MCP streamable-http initialized")
+        except Exception as e:
+            logger.warning(f"MCP lifespan startup skipped: {e}")
+
     # 4. 启动 Token 刷新调度器
     refresh_enabled = get_config("token.auto_refresh", True)
     if refresh_enabled:
@@ -81,6 +107,27 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Grok2API...")
 
     from app.core.storage import StorageFactory
+    from app.services.api_keys import api_key_manager
+    from app.services.request_stats import request_stats
+    from app.services.request_logger import request_logger
+    from app.services.conversation_manager import conversation_manager
+    from app.services.proxy_pool import proxy_pool
+
+    try:
+        await api_key_manager.flush()
+        await request_stats.flush()
+        await request_logger.flush()
+        await conversation_manager.shutdown()
+        await proxy_pool.stop()
+    except Exception:
+        pass
+
+    mcp_lifespan_ctx = getattr(app.state, "mcp_lifespan_ctx", None)
+    if mcp_lifespan_ctx is not None:
+        try:
+            await mcp_lifespan_ctx.__aexit__(None, None, None)
+        except Exception:
+            pass
 
     if StorageFactory._instance:
         await StorageFactory._instance.close()
@@ -134,6 +181,15 @@ def create_app() -> FastAPI:
     app.include_router(public_router, prefix="/v1/public")
     app.include_router(pages_router)
 
+    mcp_http_app = create_mcp_http_app()
+    app.state.mcp_http_app = mcp_http_app
+    app.state.mcp_lifespan_ctx = None
+    if mcp_http_app is not None:
+        mount_path = str(get_config("mcp.mount_path", "/mcp") or "/mcp").strip()
+        if not mount_path.startswith("/"):
+            mount_path = f"/{mount_path}"
+        app.mount(mount_path, mcp_http_app, name="mcp")
+
     return app
 
 
@@ -158,10 +214,18 @@ if __name__ == "__main__":
         )
         workers = 1
 
+    ws_impl = os.getenv("SERVER_WS_IMPL", "wsproto").strip().lower() or "wsproto"
+    if ws_impl not in {"wsproto", "websockets", "websockets-sansio", "none"}:
+        logger.warning(
+            f"Invalid SERVER_WS_IMPL={ws_impl}, fallback to wsproto"
+        )
+        ws_impl = "wsproto"
+
     uvicorn.run(
         "main:app",
         host=host,
         port=port,
         workers=workers,
         log_level=os.getenv("LOG_LEVEL", "INFO").lower(),
+        ws=ws_impl,
     )

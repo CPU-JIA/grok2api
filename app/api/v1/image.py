@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Union
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
@@ -17,6 +17,10 @@ from app.services.grok.services.model import ModelService
 from app.services.token import get_token_manager
 from app.core.exceptions import ValidationException, AppException, ErrorType
 from app.core.config import get_config
+from app.core.auth import get_admin_api_key
+from app.services.api_keys import api_key_manager
+from app.services.request_logger import request_logger
+from app.services.request_stats import request_stats
 
 
 router = APIRouter(tags=["Images"])
@@ -37,6 +41,27 @@ SIZE_TO_ASPECT = {
     "1024x1024": "1:1",
 }
 ALLOWED_ASPECT_RATIOS = {"1:1", "2:3", "3:2", "9:16", "16:9"}
+
+
+def _get_client_ip(req: Request) -> str:
+    for header in ("x-forwarded-for", "x-real-ip", "cf-connecting-ip"):
+        value = req.headers.get(header)
+        if value:
+            return value.split(",")[0].strip()
+    if req.client:
+        return req.client.host or ""
+    return ""
+
+
+def _extract_status_code(exc: Exception, default: int = 500) -> int:
+    status = getattr(exc, "status_code", None)
+    details = getattr(exc, "details", None)
+    if status is None and isinstance(details, dict):
+        status = details.get("status")
+    try:
+        return int(status or default)
+    except Exception:
+        return default
 
 
 class ImageGenerationRequest(BaseModel):
@@ -246,7 +271,7 @@ async def _get_token(model: str):
 
 
 @router.post("/images/generations")
-async def create_image(request: ImageGenerationRequest):
+async def create_image(request: ImageGenerationRequest, raw_request: Request):
     """
     Image Generation API
 
@@ -257,66 +282,127 @@ async def create_image(request: ImageGenerationRequest):
     非流式响应格式:
     - {"created": ..., "data": [{"b64_json": "..."}], "usage": {...}}
     """
-    # stream 默认为 false
-    if request.stream is None:
-        request.stream = False
-
-    if request.response_format is None:
-        request.response_format = resolve_response_format(None)
-
-    # 参数验证
-    validate_generation_request(request)
-
-    # 兼容 base64/b64_json
-    if request.response_format == "base64":
-        request.response_format = "b64_json"
-
-    response_format = resolve_response_format(request.response_format)
-    response_field = response_field_name(response_format)
-
-    # 获取 token 和模型信息
-    token_mgr, token = await _get_token(request.model)
-    model_info = ModelService.get(request.model)
-    aspect_ratio = resolve_aspect_ratio(request.size)
-
-    result = await ImageGenerationService().generate(
-        token_mgr=token_mgr,
-        token=token,
-        model_info=model_info,
-        prompt=request.prompt,
-        n=request.n,
-        response_format=response_format,
-        size=request.size,
-        aspect_ratio=aspect_ratio,
-        stream=bool(request.stream),
+    start_time = time.time()
+    client_ip = _get_client_ip(raw_request)
+    auth_header = raw_request.headers.get("authorization", "")
+    api_key = ""
+    if auth_header.lower().startswith("bearer "):
+        api_key = auth_header.split(" ", 1)[1].strip()
+    admin_key = get_admin_api_key()
+    await api_key_manager.init()
+    key_info = await api_key_manager.validate_key(api_key) if api_key else None
+    key_name = (
+        "管理员"
+        if api_key and api_key == admin_key
+        else (key_info.get("name") if key_info else "")
     )
+    key_masked = api_key_manager.mask_key(api_key) if api_key else ""
 
-    if result.stream:
-        return StreamingResponse(
-            result.data,
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    async def record(success: bool, status: int, error: str | None = None, stream: bool = False):
+        duration_ms = int((time.time() - start_time) * 1000)
+        try:
+            await request_stats.record(request.model, success=success)
+            await request_logger.log(
+                model=request.model,
+                status=status,
+                duration_ms=duration_ms,
+                ip=client_ip,
+                key_name=key_name,
+                key_masked=key_masked,
+                error=error or "",
+                stream=stream,
+            )
+            if success and api_key and api_key != admin_key:
+                await api_key_manager.record_usage(api_key)
+        except Exception:
+            pass
+
+    try:
+        # stream 默认为 false
+        if request.stream is None:
+            request.stream = False
+
+        if request.response_format is None:
+            request.response_format = resolve_response_format(None)
+
+        # 参数验证
+        validate_generation_request(request)
+
+        # 兼容 base64/b64_json
+        if request.response_format == "base64":
+            request.response_format = "b64_json"
+
+        response_format = resolve_response_format(request.response_format)
+        response_field = response_field_name(response_format)
+
+        # 获取 token 和模型信息
+        token_mgr, token = await _get_token(request.model)
+        model_info = ModelService.get(request.model)
+        aspect_ratio = resolve_aspect_ratio(request.size)
+
+        result = await ImageGenerationService().generate(
+            token_mgr=token_mgr,
+            token=token,
+            model_info=model_info,
+            prompt=request.prompt,
+            n=request.n,
+            response_format=response_format,
+            size=request.size,
+            aspect_ratio=aspect_ratio,
+            stream=bool(request.stream),
         )
 
-    data = [{response_field: img} for img in result.data]
-    usage = result.usage_override or {
-        "total_tokens": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
-    }
+        if result.stream:
+            async def stream_wrapper():
+                ok = False
+                err = None
+                status = 200
+                try:
+                    async for chunk in result.data:
+                        yield chunk
+                    ok = True
+                except Exception as exc:
+                    err = str(exc)
+                    status = _extract_status_code(exc)
+                    raise
+                finally:
+                    await record(ok, status, error=err, stream=True)
 
-    return JSONResponse(
-        content={
-            "created": int(time.time()),
-            "data": data,
-            "usage": usage,
+            return StreamingResponse(
+                stream_wrapper(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+            )
+
+        data = [{response_field: img} for img in result.data]
+        usage = result.usage_override or {
+            "total_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
         }
-    )
+
+        await record(True, 200, stream=False)
+        return JSONResponse(
+            content={
+                "created": int(time.time()),
+                "data": data,
+                "usage": usage,
+            }
+        )
+    except Exception as exc:
+        await record(
+            False,
+            _extract_status_code(exc),
+            error=str(exc),
+            stream=bool(request.stream),
+        )
+        raise
 
 
 @router.post("/images/edits")
 async def edit_image(
+    raw_request: Request,
     prompt: str = Form(...),
     image: List[UploadFile] = File(...),
     model: Optional[str] = Form("grok-imagine-1.0-edit"),
@@ -332,121 +418,185 @@ async def edit_image(
 
     同官方 API 格式，仅支持 multipart/form-data 文件上传
     """
-    if response_format is None:
-        response_format = resolve_response_format(None)
+    start_time = time.time()
+    client_ip = _get_client_ip(raw_request)
+    auth_header = raw_request.headers.get("authorization", "")
+    api_key = ""
+    if auth_header.lower().startswith("bearer "):
+        api_key = auth_header.split(" ", 1)[1].strip()
+    admin_key = get_admin_api_key()
+    await api_key_manager.init()
+    key_info = await api_key_manager.validate_key(api_key) if api_key else None
+    key_name = (
+        "管理员"
+        if api_key and api_key == admin_key
+        else (key_info.get("name") if key_info else "")
+    )
+    key_masked = api_key_manager.mask_key(api_key) if api_key else ""
+
+    model_for_log = model or "grok-imagine-1.0-edit"
+
+    async def record(success: bool, status: int, error: str | None = None, stream_mode: bool = False):
+        duration_ms = int((time.time() - start_time) * 1000)
+        try:
+            await request_stats.record(model_for_log, success=success)
+            await request_logger.log(
+                model=model_for_log,
+                status=status,
+                duration_ms=duration_ms,
+                ip=client_ip,
+                key_name=key_name,
+                key_masked=key_masked,
+                error=error or "",
+                stream=stream_mode,
+            )
+            if success and api_key and api_key != admin_key:
+                await api_key_manager.record_usage(api_key)
+        except Exception:
+            pass
 
     try:
-        edit_request = ImageEditRequest(
-            prompt=prompt,
-            model=model,
-            n=n,
-            size=size,
-            quality=quality,
-            response_format=response_format,
-            style=style,
-            stream=stream,
-        )
-    except ValidationError as exc:
-        errors = exc.errors()
-        if errors:
-            first = errors[0]
-            loc = first.get("loc", [])
-            msg = first.get("msg", "Invalid request")
-            code = first.get("type", "invalid_value")
-            param_parts = [
-                str(x) for x in loc if not (isinstance(x, int) or str(x).isdigit())
-            ]
-            param = ".".join(param_parts) if param_parts else None
-            raise ValidationException(message=msg, param=param, code=code)
-        raise ValidationException(message="Invalid request", code="invalid_value")
+        if response_format is None:
+            response_format = resolve_response_format(None)
 
-    if edit_request.stream is None:
-        edit_request.stream = False
-
-    response_format = resolve_response_format(edit_request.response_format)
-    if response_format == "base64":
-        response_format = "b64_json"
-    edit_request.response_format = response_format
-    response_field = response_field_name(response_format)
-
-    # 参数验证
-    validate_edit_request(edit_request, image)
-
-    max_image_bytes = 50 * 1024 * 1024
-    allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
-
-    images: List[str] = []
-    for item in image:
-        content = await item.read()
-        await item.close()
-        if not content:
-            raise ValidationException(
-                message="File content is empty",
-                param="image",
-                code="empty_file",
+        try:
+            edit_request = ImageEditRequest(
+                prompt=prompt,
+                model=model,
+                n=n,
+                size=size,
+                quality=quality,
+                response_format=response_format,
+                style=style,
+                stream=stream,
             )
-        if len(content) > max_image_bytes:
-            raise ValidationException(
-                message="Image file too large. Maximum is 50MB.",
-                param="image",
-                code="file_too_large",
-            )
-        mime = (item.content_type or "").lower()
-        if mime == "image/jpg":
-            mime = "image/jpeg"
-        ext = Path(item.filename or "").suffix.lower()
-        if mime not in allowed_types:
-            if ext in (".jpg", ".jpeg"):
-                mime = "image/jpeg"
-            elif ext == ".png":
-                mime = "image/png"
-            elif ext == ".webp":
-                mime = "image/webp"
-            else:
+        except ValidationError as exc:
+            errors = exc.errors()
+            if errors:
+                first = errors[0]
+                loc = first.get("loc", [])
+                msg = first.get("msg", "Invalid request")
+                code = first.get("type", "invalid_value")
+                param_parts = [
+                    str(x) for x in loc if not (isinstance(x, int) or str(x).isdigit())
+                ]
+                param = ".".join(param_parts) if param_parts else None
+                raise ValidationException(message=msg, param=param, code=code)
+            raise ValidationException(message="Invalid request", code="invalid_value")
+
+        model_for_log = edit_request.model or model_for_log
+
+        if edit_request.stream is None:
+            edit_request.stream = False
+
+        response_format = resolve_response_format(edit_request.response_format)
+        if response_format == "base64":
+            response_format = "b64_json"
+        edit_request.response_format = response_format
+        response_field = response_field_name(response_format)
+
+        # 参数验证
+        validate_edit_request(edit_request, image)
+
+        max_image_bytes = 50 * 1024 * 1024
+        allowed_types = {"image/png", "image/jpeg", "image/webp", "image/jpg"}
+
+        images: List[str] = []
+        for item in image:
+            content = await item.read()
+            await item.close()
+            if not content:
                 raise ValidationException(
-                    message="Unsupported image type. Supported: png, jpg, webp.",
+                    message="File content is empty",
                     param="image",
-                    code="invalid_image_type",
+                    code="empty_file",
                 )
-        b64 = base64.b64encode(content).decode()
-        images.append(f"data:{mime};base64,{b64}")
+            if len(content) > max_image_bytes:
+                raise ValidationException(
+                    message="Image file too large. Maximum is 50MB.",
+                    param="image",
+                    code="file_too_large",
+                )
+            mime = (item.content_type or "").lower()
+            if mime == "image/jpg":
+                mime = "image/jpeg"
+            ext = Path(item.filename or "").suffix.lower()
+            if mime not in allowed_types:
+                if ext in (".jpg", ".jpeg"):
+                    mime = "image/jpeg"
+                elif ext == ".png":
+                    mime = "image/png"
+                elif ext == ".webp":
+                    mime = "image/webp"
+                else:
+                    raise ValidationException(
+                        message="Unsupported image type. Supported: png, jpg, webp.",
+                        param="image",
+                        code="invalid_image_type",
+                    )
+            b64 = base64.b64encode(content).decode()
+            images.append(f"data:{mime};base64,{b64}")
 
-    # 获取 token 和模型信息
-    token_mgr, token = await _get_token(edit_request.model)
-    model_info = ModelService.get(edit_request.model)
+        # 获取 token 和模型信息
+        token_mgr, token = await _get_token(edit_request.model)
+        model_info = ModelService.get(edit_request.model)
 
-    result = await ImageEditService().edit(
-        token_mgr=token_mgr,
-        token=token,
-        model_info=model_info,
-        prompt=edit_request.prompt,
-        images=images,
-        n=edit_request.n,
-        response_format=response_format,
-        stream=bool(edit_request.stream),
-    )
-
-    if result.stream:
-        return StreamingResponse(
-            result.data,
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        result = await ImageEditService().edit(
+            token_mgr=token_mgr,
+            token=token,
+            model_info=model_info,
+            prompt=edit_request.prompt,
+            images=images,
+            n=edit_request.n,
+            response_format=response_format,
+            stream=bool(edit_request.stream),
         )
 
-    data = [{response_field: img} for img in result.data]
+        if result.stream:
+            async def stream_wrapper():
+                ok = False
+                err = None
+                status = 200
+                try:
+                    async for chunk in result.data:
+                        yield chunk
+                    ok = True
+                except Exception as exc:
+                    err = str(exc)
+                    status = _extract_status_code(exc)
+                    raise
+                finally:
+                    await record(ok, status, error=err, stream_mode=True)
 
-    return JSONResponse(
-        content={
-            "created": int(time.time()),
-            "data": data,
-            "usage": {
-                "total_tokens": 0,
-                "input_tokens": 0,
-                "output_tokens": 0,
-                "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
-            },
-        }
-    )
+            return StreamingResponse(
+                stream_wrapper(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+            )
+
+        data = [{response_field: img} for img in result.data]
+
+        await record(True, 200, stream_mode=False)
+        return JSONResponse(
+            content={
+                "created": int(time.time()),
+                "data": data,
+                "usage": {
+                    "total_tokens": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
+                },
+            }
+        )
+    except Exception as exc:
+        await record(
+            False,
+            _extract_status_code(exc),
+            error=str(exc),
+            stream_mode=bool(stream),
+        )
+        raise
 
 
 __all__ = ["router"]

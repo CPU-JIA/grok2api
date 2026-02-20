@@ -9,8 +9,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-mono/style.css" rel="stylesheet">
-  <link href="/static/common/css/common.css?v=1.5.0" rel="stylesheet">
-  <link href="/static/admin/css/token.css?v=1.5.0" rel="stylesheet">
+  <link href="/static/common/css/common.css?v=1.5.1" rel="stylesheet">
+  <link href="/static/admin/css/token.css?v=1.5.1" rel="stylesheet">
   <link href="/static/common/css/toast.css" rel="stylesheet">
 </head>
 
@@ -147,9 +147,6 @@
       <div class="pagination-bar">
         <div id="pagination-info" class="text-xs text-[var(--accents-5)]">第 0 / 0 页 · 共 0 条</div>
         <div class="flex items-center gap-2">
-          <button class="geist-button-outline text-xs px-3" onclick="selectVisibleAll()">全选本页</button>
-          <button class="geist-button-outline text-xs px-3" onclick="selectAllFiltered()">全选全部</button>
-          <button class="geist-button-outline text-xs px-3" onclick="clearAllSelection()">取消全选</button>
           <button id="page-prev" class="geist-button-outline text-xs px-3" onclick="goPrevPage()">上一页</button>
           <button id="page-next" class="geist-button-outline text-xs px-3" onclick="goNextPage()">下一页</button>
           <select id="page-size" class="geist-input h-[30px]" onchange="changePageSize()">
@@ -172,24 +169,36 @@
     class="fixed bottom-8 left-1/2 -translate-x-1/2 z-20 bg-white border border-[var(--border)] rounded-full px-3 py-2 flex items-center shadow-lg gap-3 cursor-move select-none active:cursor-grabbing whitespace-nowrap">
     <div class="text-sm font-medium flex items-center gap-2">
       <span class="text-[var(--accents-5)] text-xs">已选择</span>
-      <span class="bg-black text-white text-xs px-1.5 py-0.5 rounded-full" id="selected-count">0</span>
+      <span class="batch-count-pill" id="selected-count">0</span>
       <span class="text-[var(--accents-5)] text-xs">项</span>
     </div>
     <span class="toolbar-sep"></span>
-    <div class="flex items-center gap-1">
+    <div class="batch-selection-actions flex items-center gap-1">
+      <button id="btn-select-visible" onclick="selectVisibleAll()" class="batch-action-btn" type="button">
+        全选本页
+      </button>
+      <button id="btn-select-all" onclick="selectAllFiltered()" class="batch-action-btn" type="button">
+        全选全部
+      </button>
+      <button id="btn-clear-selection" onclick="clearAllSelection()" class="batch-action-btn" type="button">
+        取消全选
+      </button>
+    </div>
+    <span class="toolbar-sep"></span>
+    <div class="batch-main-actions flex items-center gap-1">
       <button id="btn-batch-export" onclick="batchExport()"
-        class="geist-button-outline text-xs px-3 gap-1 border-0 hover:bg-gray-100">
+        class="batch-action-btn">
         导出
       </button>
       <button id="btn-batch-update" onclick="batchUpdate()"
-        class="geist-button-outline text-xs px-3 gap-1 border-0 hover:bg-gray-100 justify-center">
+        class="batch-action-btn justify-center">
         刷新
       </button>
       <button id="btn-batch-nsfw" onclick="batchEnableNSFW()"
-        class="geist-button-outline text-xs px-3 gap-1 border-0 hover:bg-gray-100 justify-center" disabled>
+        class="batch-action-btn justify-center" disabled>
         NSFW
       </button>
-      <button id="btn-batch-delete" onclick="batchDelete()" class="geist-button-danger text-xs px-3">
+      <button id="btn-batch-delete" onclick="batchDelete()" class="batch-action-btn batch-action-danger">
         删除
       </button>
     </div>
@@ -292,12 +301,13 @@
   </div>
 
   <script src="/static/common/js/draggable.js"></script>
-  <script src="/static/common/js/admin-auth.js?v=1.5.0"></script>
-  <script src="/static/common/js/batch-sse.js?v=1.5.0"></script>
-  <script src="/static/common/js/header.js?v=1.5.0"></script>
-  <script src="/static/common/js/footer.js?v=1.5.0"></script>
+  <script src="/static/common/js/admin-auth.js?v=1.5.1"></script>
+  <script src="/static/common/js/batch-sse.js?v=1.5.1"></script>
+  <script src="/static/common/js/header.js?v=1.5.1"></script>
+  <script src="/static/common/js/footer.js?v=1.5.1"></script>
   <script src="/static/common/js/toast.js"></script>
-  <script src="/static/admin/js/token.js?v=1.5.0"></script>
+  <script src="/static/admin/js/token.js?v=1.5.1"></script>
 </body>
 
 </html>
+

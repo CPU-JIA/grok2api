@@ -1,0 +1,171 @@
+<main class="space-y-6 flex-1 container mx-auto max-w-6xl px-6 py-8 fade-in">
+  <div class="space-y-6">
+    <div class="keys-topbar">
+      <div class="keys-title-wrap">
+        <h2 class="page-title">Key 管理</h2>
+        <p class="page-subtitle">管理 API Key 访问凭证。</p>
+      </div>
+      <div class="keys-actions" role="group" aria-label="Key 操作">
+        <button id="key-refresh-btn" class="geist-button-outline gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 21h5v-5" />
+          </svg>
+          刷新
+        </button>
+        <button id="key-batch-btn" class="geist-button-outline gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="7" height="7" rx="1" />
+            <rect x="14" y="4" width="7" height="7" rx="1" />
+            <rect x="3" y="15" width="7" height="7" rx="1" />
+            <path d="M14 15h7M17.5 12v6" />
+          </svg>
+          批量创建
+        </button>
+        <button id="key-create-btn" class="geist-button gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          新增 Key
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="stat-card key-stat-card">
+        <div class="stat-value" id="key-stat-total">0</div>
+        <div class="stat-label">Key 总数</div>
+      </div>
+      <div class="stat-card key-stat-card">
+        <div class="stat-value text-emerald-600" id="key-stat-active">0</div>
+        <div class="stat-label">启用 Key</div>
+      </div>
+      <div class="stat-card key-stat-card">
+        <div class="stat-value text-amber-600" id="key-stat-disabled">0</div>
+        <div class="stat-label">禁用 Key</div>
+      </div>
+      <div class="stat-card key-stat-card key-stat-selected">
+        <div class="stat-value text-sky-600" id="key-stat-selected">0</div>
+        <div class="stat-label">当前选择</div>
+      </div>
+    </div>
+
+    <div class="keys-table-wrap rounded-lg overflow-hidden bg-white mb-2 overflow-x-auto">
+      <table class="geist-table min-w-[760px]">
+        <thead>
+          <tr>
+            <th class="w-10 text-center">
+              <input id="keys-select-all" type="checkbox" class="checkbox">
+            </th>
+            <th class="text-left">备注</th>
+            <th class="text-left">Key</th>
+            <th class="text-left w-48">创建时间</th>
+            <th class="text-center w-24">状态</th>
+            <th class="text-center w-32">操作</th>
+          </tr>
+        </thead>
+        <tbody id="keys-table-body"></tbody>
+      </table>
+      <div id="keys-empty" class="hidden table-empty">暂无 API Key</div>
+    </div>
+
+    <div id="keys-selection" class="keys-selection hidden" role="status" aria-live="polite">
+      <div class="keys-selection-info">
+        已选择 <span id="keys-selected-count">0</span> 项
+      </div>
+      <div class="keys-selection-actions">
+        <button id="keys-delete-selected" class="geist-button-danger text-xs px-3">批量删除</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="key-create-modal" class="modal-overlay hidden">
+  <div class="modal-content modal-md">
+    <div class="modal-header">
+      <h3 class="modal-title">新增 Key</h3>
+      <button type="button" class="modal-close" data-close="key-create-modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="modal-label mb-1 block">备注</label>
+        <input type="text" id="key-create-name" class="geist-input" placeholder="可选备注">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" class="geist-button-outline text-xs px-3" data-close="key-create-modal">取消</button>
+        <button type="button" id="key-create-confirm" class="geist-button text-xs px-3">创建</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="key-batch-modal" class="modal-overlay hidden">
+  <div class="modal-content modal-md">
+    <div class="modal-header">
+      <h3 class="modal-title">批量创建 Key</h3>
+      <button type="button" class="modal-close" data-close="key-batch-modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="modal-label mb-1 block">备注前缀</label>
+        <input type="text" id="key-batch-name" class="geist-input" placeholder="未命名">
+      </div>
+      <div>
+        <label class="modal-label mb-1 block">数量</label>
+        <input type="number" id="key-batch-count" class="geist-input" min="1" max="100" value="5">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" class="geist-button-outline text-xs px-3" data-close="key-batch-modal">取消</button>
+        <button type="button" id="key-batch-confirm" class="geist-button text-xs px-3">创建</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="key-edit-modal" class="modal-overlay hidden">
+  <div class="modal-content modal-md">
+    <div class="modal-header">
+      <h3 class="modal-title">编辑 Key</h3>
+      <button type="button" class="modal-close" data-close="key-edit-modal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <input type="hidden" id="key-edit-value">
+      <div>
+        <label class="modal-label mb-1 block">Key</label>
+        <input type="text" id="key-edit-display" class="geist-input font-mono bg-gray-50 text-gray-500" disabled>
+      </div>
+      <div>
+        <label class="modal-label mb-1 block">备注</label>
+        <input type="text" id="key-edit-name" class="geist-input">
+      </div>
+      <div>
+        <label class="modal-label mb-1 block">状态</label>
+        <select id="key-edit-status" class="geist-input">
+          <option value="true">启用</option>
+          <option value="false">禁用</option>
+        </select>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" class="geist-button-outline text-xs px-3" data-close="key-edit-modal">取消</button>
+        <button type="button" id="key-edit-confirm" class="geist-button text-xs px-3">保存</button>
+      </div>
+    </div>
+  </div>
+</div>

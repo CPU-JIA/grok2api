@@ -130,8 +130,9 @@
     try {
       const authHeader = await ensurePublicKey();
       if (authHeader === null) {
-        toast('请先配置 Public Key', 'error');
-        window.location.href = '/login';
+        const isAdmin = Boolean(window.__adminSpa__) || window.location.pathname.startsWith('/admin');
+        toast(isAdmin ? '请先登录后台' : '请先配置 Public Key', 'error');
+        window.location.href = isAdmin ? '/admin/login' : '/login';
         return;
       }
 
