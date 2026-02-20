@@ -1,0 +1,233 @@
+.sessions-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sessions-title-wrap {
+  min-width: 0;
+}
+
+.sessions-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.session-stat-card {
+  border-color: #eaeaea;
+}
+
+.sessions-table-wrap {
+  border: 1px solid #e7e7e7;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.geist-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.geist-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: center;
+  padding: 0 14px;
+  border-bottom: 1px solid #ececec;
+  color: var(--accents-5);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  height: 42px;
+  background: #f8f8f8;
+}
+
+.geist-table th.text-left {
+  text-align: left;
+}
+
+.geist-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #efefef;
+  background: var(--surface-elevated);
+  vertical-align: middle;
+  min-height: 46px;
+  color: var(--accents-6);
+  text-align: center;
+  transition: background 0.15s ease;
+  font-size: 12px;
+}
+
+.geist-table td.text-left {
+  text-align: left;
+}
+
+.geist-table tr:last-child td {
+  border-bottom: none;
+}
+
+.geist-table tr:hover td {
+  background: #f5f5f5;
+}
+
+.session-id-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-id {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: var(--accents-6);
+  display: inline-block;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-copy {
+  border: 1px solid #e5e5e5;
+  background: var(--surface-elevated);
+  border-radius: 7px;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--accents-4);
+  cursor: pointer;
+}
+
+.session-copy:hover {
+  border-color: #000;
+  color: var(--accents-7);
+  background: #fafafa;
+}
+
+.session-token {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: var(--accents-5);
+  display: inline-block;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-action-icon {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accents-5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.session-action-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.session-action-icon:hover {
+  border-color: #111;
+  color: #111;
+  background: #fafafa;
+}
+
+.session-action-icon.is-danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.session-action-icon.is-danger:hover {
+  border-color: #fca5a5;
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.hash-badge,
+.ttl-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 0 9px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.hash-badge.matched {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.hash-badge.stale {
+  background: #fff7e6;
+  color: #b45309;
+}
+
+.hash-badge.none {
+  background: #edf2f7;
+  color: #475467;
+}
+
+.ttl-badge {
+  background: #e6effd;
+  color: #1d4ed8;
+}
+
+.ttl-badge.low {
+  background: #fff0f0;
+  color: #be123c;
+}
+
+.ttl-badge.warn {
+  background: #fff8e6;
+  color: #b45309;
+}
+
+.ttl-badge.expired {
+  background: #eaf0f8;
+  color: #475467;
+}
+
+.geist-button.is-busy,
+.geist-button-outline.is-busy,
+.geist-button-danger.is-busy,
+.session-action-icon.is-busy,
+.session-copy.is-busy {
+  opacity: 0.68;
+  cursor: wait;
+}
+
+@media (max-width: 920px) {
+  .sessions-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sessions-actions {
+    justify-content: flex-start;
+  }
+}

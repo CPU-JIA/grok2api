@@ -7,6 +7,7 @@ from fastapi import HTTPException, status, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.core.config import get_config
+from app.services.api_keys import api_key_manager
 
 DEFAULT_API_KEY = ""
 DEFAULT_APP_KEY = "grok2api"
@@ -62,7 +63,9 @@ async def verify_api_key(
     如果 config.toml 中未配置 api_key，则不启用认证。
     """
     api_key = get_admin_api_key()
-    if not api_key:
+    await api_key_manager.init()
+    has_keys = bool(api_key_manager.list_keys())
+    if not api_key and not has_keys:
         return None
 
     if not auth:
@@ -72,7 +75,11 @@ async def verify_api_key(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if auth.credentials != api_key:
+    if api_key and auth.credentials == api_key:
+        return auth.credentials
+
+    key_info = await api_key_manager.validate_key(auth.credentials)
+    if not key_info:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token",
@@ -123,9 +130,15 @@ async def verify_public_key(
     验证 Public Key（public 接口使用）。
 
     默认不公开，需配置 public_key 才能访问；若开启 public_enabled 且未配置 public_key，则放开访问。
+    管理端 app_key 始终可作为高级凭证访问 public 接口。
     """
     public_key = get_public_api_key()
     public_enabled = is_public_enabled()
+    app_key = get_app_key()
+
+    # 管理端凭证优先放行（用于后台复用 public 功能页）
+    if auth and app_key and auth.credentials == app_key:
+        return auth.credentials
 
     if not public_key:
         if public_enabled:

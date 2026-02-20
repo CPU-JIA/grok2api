@@ -1,34 +1,196 @@
 /* Config page specific styles (shared styles moved to common.css). */
 
-.config-section {
-  background: #fff;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: border-color 0.2s ease;
+.config-topbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(340px, 1fr) auto;
+  align-items: start;
+  gap: 14px;
 }
 
-.config-section:hover {
+.config-title-wrap {
+  min-width: 0;
+}
+
+.config-save-btn {
+  justify-self: end;
+  background: var(--surface-elevated);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(34, 45, 59, 0.06);
+}
+
+.config-save-btn:hover {
+  opacity: 1;
+  background: #f5f5f5;
   border-color: #000;
 }
 
-.config-section-title {
-  font-size: 14px;
-  font-weight: 600;
+.config-save-btn:disabled {
+  opacity: 0.6;
+}
+
+.config-icon-btn {
+  background: var(--surface-elevated);
   color: var(--accents-7);
+  border: 1px solid #e5e5e5;
+  box-shadow: 0 1px 0 rgba(34, 45, 59, 0.06);
+}
+
+.config-icon-btn:hover {
+  background: #f5f5f5;
+  border-color: #000;
+  color: var(--accents-7);
+}
+
+.config-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.14);
+}
+
+.config-tabs {
+  min-height: 40px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #eaeaea;
+  background: #fafafa;
+  border-radius: 12px;
+}
+
+.config-tab-btn {
+  width: 100%;
+  text-align: center;
+  border: 0;
+  background: transparent;
+  color: var(--accents-5);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.config-tab-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.config-tab-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.config-tab-label {
+  line-height: 1;
+}
+
+.config-tab-btn:hover {
+  color: var(--accents-7);
+  background: #f1f1f1;
+}
+
+.config-tab-btn.active {
+  color: var(--fg);
+  font-weight: 600;
+  background: var(--surface-elevated);
+  box-shadow: 0 2px 8px rgba(34, 45, 59, 0.12);
+}
+
+.config-tab-btn:disabled,
+.config-tab-btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.config-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.config-block + .config-block {
+  margin-top: 16px;
+}
+
+.config-block-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.config-block-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accents-7);
+}
+
+.config-block-desc {
+  font-size: 12px;
+  color: var(--accents-4);
+  line-height: 1.5;
 }
 
 .config-grid {
   display: grid;
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.config-section {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 5px 14px rgba(34, 45, 59, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.config-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accents-6);
+}
+
+.config-section-desc {
+  font-size: 12px;
+  color: var(--accents-4);
+  margin-top: -2px;
+}
+
+.config-fields {
+  display: grid;
+  gap: 10px;
 }
 
 .config-field {
-  padding-top: 2px;
+  padding-top: 0;
   position: relative;
+}
+
+.config-fields .config-field + .config-field {
+  border-top: 1px dashed #ececec;
+  padding-top: 10px;
 }
 
 .config-field-title {
@@ -56,4 +218,36 @@
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+}
+
+@media (max-width: 1200px) {
+  .config-topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .config-tabs {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .config-topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .config-save-btn {
+    justify-self: end;
+  }
+
+  .config-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 6px;
+    min-height: auto;
+  }
+
+  .config-tab-btn {
+    font-size: 12px;
+    min-height: 30px;
+    padding: 0 8px;
+  }
 }

@@ -10,6 +10,7 @@ from curl_cffi.requests import AsyncSession
 from app.core.logger import logger
 from app.core.config import get_config
 from app.core.exceptions import UpstreamException
+from app.services.proxy_pool import get_proxy_url, build_proxies
 from app.services.token.service import TokenService
 from app.services.reverse.utils.headers import build_headers, build_ws_headers
 from app.services.reverse.utils.retry import retry_on_status
@@ -44,8 +45,8 @@ class LivekitTokenReverse:
         """
         try:
             # Get proxies
-            base_proxy = get_config("proxy.base_proxy_url")
-            proxies = {"http": base_proxy, "https": base_proxy} if base_proxy else None
+            proxy_url = await get_proxy_url()
+            proxies = build_proxies(proxy_url)
 
             # Build headers
             headers = build_headers(
@@ -180,3 +181,6 @@ __all__ = [
     "LIVEKIT_TOKEN_API",
     "LIVEKIT_WS_URL",
 ]
+
+
+

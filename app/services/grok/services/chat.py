@@ -18,15 +18,23 @@ from app.core.exceptions import (
     ErrorType,
     UpstreamException,
     StreamIdleTimeoutError,
+    StreamFirstTimeoutError,
+    StreamTotalTimeoutError,
 )
 from app.services.grok.services.model import ModelService
 from app.services.grok.utils.upload import UploadService
 from app.services.grok.utils import process as proc_base
-from app.services.grok.utils.retry import pick_token, rate_limited
+from app.services.grok.utils.retry import (
+    pick_token,
+    rate_limited,
+    extract_status_code,
+    rate_limit_has_quota,
+)
 from app.services.reverse.app_chat import AppChatReverse
 from app.services.reverse.utils.session import ResettableSession
 from app.services.grok.utils.stream import wrap_stream_with_usage
 from app.services.token import get_token_manager, EffortType
+from app.services.conversation_manager import conversation_manager
 
 
 _CHAT_SEMAPHORE = None
@@ -103,7 +111,10 @@ class MessageExtractor:
     """消息内容提取器"""
 
     @staticmethod
-    def extract(messages: List[Dict[str, Any]]) -> tuple[str, List[str], List[str]]:
+    def extract(
+        messages: List[Dict[str, Any]],
+        is_continue: bool = False,
+    ) -> tuple[str, List[str], List[str]]:
         """从 OpenAI 消息格式提取内容，返回 (text, file_attachments, image_attachments)"""
         texts = []
         file_attachments: List[str] = []
@@ -147,6 +158,47 @@ class MessageExtractor:
             if parts:
                 extracted.append({"role": role, "text": "\n".join(parts)})
 
+        if is_continue:
+            # 继续对话：只发送最后一条 user 消息
+            last_user = next(
+                (m for m in reversed(messages) if m.get("role") == "user"), None
+            )
+            if not last_user and messages:
+                last_user = messages[-1]
+            if not last_user:
+                return "", file_attachments, image_attachments
+
+            role = last_user.get("role", "user")
+            content = last_user.get("content", "")
+            parts: List[str] = []
+
+            if isinstance(content, str):
+                if content.strip():
+                    parts.append(content)
+            elif isinstance(content, list):
+                for item in content:
+                    item_type = item.get("type", "")
+                    if item_type == "text":
+                        if text := item.get("text", "").strip():
+                            parts.append(text)
+                    elif item_type == "image_url":
+                        image_data = item.get("image_url", {})
+                        url = image_data.get("url", "")
+                        if url:
+                            image_attachments.append(url)
+                    elif item_type == "input_audio":
+                        audio_data = item.get("input_audio", {})
+                        data = audio_data.get("data", "")
+                        if data:
+                            file_attachments.append(data)
+                    elif item_type == "file":
+                        file_data = item.get("file", {})
+                        raw = file_data.get("file_data", "")
+                        if raw:
+                            file_attachments.append(raw)
+
+            return ("\n".join(parts) if parts else ""), file_attachments, image_attachments
+
         # 找到最后一条 user 消息
         last_user_index = next(
             (
@@ -178,6 +230,8 @@ class GrokChatService:
         file_attachments: List[str] = None,
         tool_overrides: Dict[str, Any] = None,
         model_config_override: Dict[str, Any] = None,
+        conversation_id: str | None = None,
+        parent_response_id: str | None = None,
     ):
         """发送聊天请求"""
         if stream is None:
@@ -193,16 +247,30 @@ class GrokChatService:
             session = ResettableSession(impersonate=browser)
             try:
                 async with _get_chat_semaphore():
-                    stream_response = await AppChatReverse.request(
-                        session,
-                        token,
-                        message=message,
-                        model=model,
-                        mode=mode,
-                        file_attachments=file_attachments,
-                        tool_overrides=tool_overrides,
-                        model_config_override=model_config_override,
-                    )
+                    if conversation_id and parent_response_id:
+                        stream_response = await AppChatReverse.request_continue(
+                            session,
+                            token,
+                            conversation_id=conversation_id,
+                            parent_response_id=parent_response_id,
+                            message=message,
+                            model=model,
+                            mode=mode,
+                            file_attachments=file_attachments,
+                            tool_overrides=tool_overrides,
+                            model_config_override=model_config_override,
+                        )
+                    else:
+                        stream_response = await AppChatReverse.request(
+                            session,
+                            token,
+                            message=message,
+                            model=model,
+                            mode=mode,
+                            file_attachments=file_attachments,
+                            tool_overrides=tool_overrides,
+                            model_config_override=model_config_override,
+                        )
                     logger.info(f"Chat connected: model={model}, stream={stream}")
                     async for line in stream_response:
                         yield line
@@ -224,6 +292,9 @@ class GrokChatService:
         reasoning_effort: str | None = None,
         temperature: float = 0.8,
         top_p: float = 0.95,
+        conversation_id: str | None = None,
+        parent_response_id: str | None = None,
+        is_continue: bool = False,
     ):
         """OpenAI 兼容接口"""
         model_info = ModelService.get(model)
@@ -233,7 +304,9 @@ class GrokChatService:
         grok_model = model_info.grok_model
         mode = model_info.model_mode
         # 提取消息和附件
-        message, file_attachments, image_attachments = MessageExtractor.extract(messages)
+        message, file_attachments, image_attachments = MessageExtractor.extract(
+            messages, is_continue=is_continue
+        )
         logger.debug(
             "Extracted message length=%s, files=%s, images=%s",
             len(message),
@@ -276,6 +349,8 @@ class GrokChatService:
             stream,
             file_attachments=all_attachments,
             model_config_override=model_config_override,
+            conversation_id=conversation_id,
+            parent_response_id=parent_response_id,
         )
 
         return response, stream, model
@@ -292,11 +367,14 @@ class ChatService:
         reasoning_effort: str | None = None,
         temperature: float = 0.8,
         top_p: float = 0.95,
+        conversation_id: str | None = None,
     ):
         """Chat Completions 入口"""
         # 获取 token
         token_mgr = await get_token_manager()
         await token_mgr.reload_if_stale()
+
+        await conversation_manager.init()
 
         # 解析参数
         if reasoning_effort is None:
@@ -305,6 +383,20 @@ class ChatService:
             show_think = reasoning_effort != "none"
         is_stream = stream if stream is not None else get_config("app.stream")
 
+        openai_conv_id = conversation_id
+        context = None
+        if conversation_id:
+            context = await conversation_manager.get_conversation(conversation_id)
+
+        if not context and messages and len(messages) > 1:
+            auto_conv_id = await conversation_manager.find_conversation_by_history(messages)
+            if auto_conv_id:
+                context = await conversation_manager.get_conversation(auto_conv_id)
+                openai_conv_id = auto_conv_id
+
+        if openai_conv_id is None:
+            openai_conv_id = conversation_manager.generate_id()
+
         # 跨 Token 重试循环
         tried_tokens = set()
         max_token_retries = int(get_config("retry.max_retry"))
@@ -312,7 +404,8 @@ class ChatService:
 
         for attempt in range(max_token_retries):
             # 选择 token
-            token = await pick_token(token_mgr, model, tried_tokens)
+            preferred = context.token if context else None
+            token = await pick_token(token_mgr, model, tried_tokens, preferred=preferred)
             if not token:
                 if last_error:
                     raise last_error
@@ -326,6 +419,30 @@ class ChatService:
             tried_tokens.add(token)
 
             try:
+                # 若会话跨账号，尝试克隆分享会话
+                if context and token != context.token:
+                    if context.share_link_id:
+                        new_conv_id, new_resp_id = await AppChatReverse.clone_share_link(
+                            token, context.share_link_id
+                        )
+                        if new_conv_id and new_resp_id:
+                            await conversation_manager.update_conversation(
+                                openai_conv_id,
+                                new_resp_id,
+                                share_link_id=context.share_link_id,
+                                grok_conversation_id=new_conv_id,
+                                token=token,
+                                increment_message=False,
+                            )
+                            context = await conversation_manager.get_conversation(openai_conv_id)
+                        else:
+                            context = None
+                    else:
+                        context = None
+
+                    if context is None:
+                        openai_conv_id = conversation_manager.generate_id()
+
                 # 请求 Grok
                 service = GrokChatService()
                 response, _, model_name = await service.chat_openai(
@@ -336,19 +453,73 @@ class ChatService:
                     reasoning_effort=reasoning_effort,
                     temperature=temperature,
                     top_p=top_p,
+                    conversation_id=context.conversation_id if context else None,
+                    parent_response_id=context.last_response_id if context else None,
+                    is_continue=bool(context),
                 )
 
                 # 处理响应
                 if is_stream:
                     logger.debug(f"Processing stream response: model={model}")
-                    processor = StreamProcessor(model_name, token, show_think)
-                    return wrap_stream_with_usage(
-                        processor.process(response), token_mgr, token, model
-                    )
+                    processor = StreamProcessor(model_name, token, show_think, openai_conv_id)
+
+                    async def _update_conversation_from_processor():
+                        grok_conv_id = processor.grok_conversation_id or (context.conversation_id if context else "")
+                        grok_resp_id = processor.response_id
+                        if not grok_conv_id or not grok_resp_id:
+                            return
+
+                        if context:
+                            await conversation_manager.update_conversation(
+                                openai_conv_id,
+                                grok_resp_id,
+                                messages=messages,
+                                grok_conversation_id=grok_conv_id,
+                                token=token,
+                            )
+                        else:
+                            await conversation_manager.create_conversation(
+                                token,
+                                grok_conv_id,
+                                grok_resp_id,
+                                messages=messages,
+                                openai_conv_id=openai_conv_id,
+                            )
+
+                        async def _share():
+                            share_link_id = await AppChatReverse.share_conversation(
+                                token, grok_conv_id, grok_resp_id
+                            )
+                            if share_link_id:
+                                await conversation_manager.update_conversation(
+                                    openai_conv_id,
+                                    grok_resp_id,
+                                    share_link_id=share_link_id,
+                                    grok_conversation_id=grok_conv_id,
+                                    token=token,
+                                    increment_message=False,
+                                )
+
+                        asyncio.create_task(_share())
+
+                    async def stream_wrapper():
+                        success = False
+                        try:
+                            async for chunk in wrap_stream_with_usage(
+                                processor.process(response), token_mgr, token, model
+                            ):
+                                yield chunk
+                            success = True
+                        finally:
+                            if success:
+                                await _update_conversation_from_processor()
+
+                    return stream_wrapper()
 
                 # 非流式
                 logger.debug(f"Processing non-stream response: model={model}")
-                result = await CollectProcessor(model_name, token).process(response)
+                collector = CollectProcessor(model_name, token)
+                result = await collector.process(response)
                 try:
                     model_info = ModelService.get(model)
                     effort = (
@@ -360,21 +531,76 @@ class ChatService:
                     logger.info(f"Chat completed: model={model}, effort={effort.value}")
                 except Exception as e:
                     logger.warning(f"Failed to record usage: {e}")
+
+                grok_conv_id = collector.grok_conversation_id or (context.conversation_id if context else "")
+                grok_resp_id = collector.response_id
+                if grok_conv_id and grok_resp_id:
+                    if context:
+                        await conversation_manager.update_conversation(
+                            openai_conv_id,
+                            grok_resp_id,
+                            messages=messages,
+                            grok_conversation_id=grok_conv_id,
+                            token=token,
+                        )
+                    else:
+                        await conversation_manager.create_conversation(
+                            token,
+                            grok_conv_id,
+                            grok_resp_id,
+                            messages=messages,
+                            openai_conv_id=openai_conv_id,
+                        )
+
+                    async def _share():
+                        share_link_id = await AppChatReverse.share_conversation(
+                            token, grok_conv_id, grok_resp_id
+                        )
+                        if share_link_id:
+                            await conversation_manager.update_conversation(
+                                openai_conv_id,
+                                grok_resp_id,
+                                share_link_id=share_link_id,
+                                grok_conversation_id=grok_conv_id,
+                                token=token,
+                                increment_message=False,
+                            )
+
+                    asyncio.create_task(_share())
+
+                result["conversation_id"] = openai_conv_id
                 return result
 
             except UpstreamException as e:
                 last_error = e
 
                 if rate_limited(e):
-                    # 配额不足，标记 token 为 cooling 并换 token 重试
-                    await token_mgr.mark_rate_limited(token)
+                    has_quota = rate_limit_has_quota(e)
+                    await token_mgr.apply_cooldown(
+                        token,
+                        429,
+                        has_quota=has_quota,
+                        reason="rate_limit",
+                    )
                     logger.warning(
                         f"Token {token[:10]}... rate limited (429), "
                         f"trying next token (attempt {attempt + 1}/{max_token_retries})"
                     )
                     continue
 
-                # 非 429 错误，不换 token，直接抛出
+                status = extract_status_code(e)
+                if status and status not in (401, 403):
+                    await token_mgr.apply_cooldown(
+                        token,
+                        int(status),
+                        reason=f"status_{status}",
+                    )
+                    logger.warning(
+                        f"Token {token[:10]}... status={status}, "
+                        f"trying next token (attempt {attempt + 1}/{max_token_retries})"
+                    )
+                    continue
+
                 raise
 
         # 所有 token 都 429，抛出最后的错误
@@ -391,9 +617,17 @@ class ChatService:
 class StreamProcessor(proc_base.BaseProcessor):
     """Stream response processor."""
 
-    def __init__(self, model: str, token: str = "", show_think: bool = None):
+    def __init__(
+        self,
+        model: str,
+        token: str = "",
+        show_think: bool = None,
+        conversation_id: str | None = None,
+    ):
         super().__init__(model, token)
         self.response_id: str = None
+        self.grok_conversation_id: str = ""
+        self.conversation_id: str | None = conversation_id
         self.fingerprint: str = ""
         self.rollout_id: str = ""
         self.think_opened: bool = False
@@ -500,6 +734,8 @@ class StreamProcessor(proc_base.BaseProcessor):
                 {"index": 0, "delta": delta, "logprobs": None, "finish_reason": finish}
             ],
         }
+        if self.conversation_id:
+            chunk["conversation_id"] = self.conversation_id
         return f"data: {orjson.dumps(chunk).decode()}\n\n"
 
     async def process(self, response: AsyncIterable[bytes]) -> AsyncGenerator[str, None]:
@@ -512,10 +748,16 @@ class StreamProcessor(proc_base.BaseProcessor):
             AsyncGenerator[str, None], async generator of strings
         """
         idle_timeout = get_config("chat.stream_timeout")
+        first_timeout = get_config("chat.stream_first_timeout", 0)
+        total_timeout = get_config("chat.stream_total_timeout", 0)
 
         try:
-            async for line in proc_base._with_idle_timeout(
-                response, idle_timeout, self.model
+            async for line in proc_base._with_stream_timeouts(
+                response,
+                first_timeout=first_timeout,
+                idle_timeout=idle_timeout,
+                total_timeout=total_timeout,
+                model=self.model,
             ):
                 line = proc_base._normalize_line(line)
                 if not line:
@@ -534,8 +776,14 @@ class StreamProcessor(proc_base.BaseProcessor):
                     self.fingerprint = llm.get("modelHash", "")
                 if rid := resp.get("responseId"):
                     self.response_id = rid
+                if mr := resp.get("modelResponse"):
+                    if rid := mr.get("responseId"):
+                        self.response_id = rid
                 if rid := resp.get("rolloutId"):
                     self.rollout_id = str(rid)
+                if conv := data.get("result", {}).get("conversation"):
+                    if conv_id := conv.get("conversationId"):
+                        self.grok_conversation_id = conv_id
 
                 if not self.role_sent:
                     yield self._sse(role="assistant")
@@ -621,6 +869,26 @@ class StreamProcessor(proc_base.BaseProcessor):
             yield "data: [DONE]\n\n"
         except asyncio.CancelledError:
             logger.debug("Stream cancelled by client", extra={"model": self.model})
+        except StreamFirstTimeoutError as e:
+            raise UpstreamException(
+                message=f"Stream first response timeout after {e.first_seconds}s",
+                status_code=504,
+                details={
+                    "error": str(e),
+                    "type": "stream_first_timeout",
+                    "first_seconds": e.first_seconds,
+                },
+            )
+        except StreamTotalTimeoutError as e:
+            raise UpstreamException(
+                message=f"Stream total timeout after {e.total_seconds}s",
+                status_code=504,
+                details={
+                    "error": str(e),
+                    "type": "stream_total_timeout",
+                    "total_seconds": e.total_seconds,
+                },
+            )
         except StreamIdleTimeoutError as e:
             raise UpstreamException(
                 message=f"Stream idle timeout after {e.idle_seconds}s",
@@ -661,6 +929,8 @@ class CollectProcessor(proc_base.BaseProcessor):
     def __init__(self, model: str, token: str = ""):
         super().__init__(model, token)
         self.filter_tags = get_config("app.filter_tags")
+        self.response_id: str = ""
+        self.grok_conversation_id: str = ""
 
     def _filter_content(self, content: str) -> str:
         """Filter special tags in content."""
@@ -701,10 +971,16 @@ class CollectProcessor(proc_base.BaseProcessor):
         fingerprint = ""
         content = ""
         idle_timeout = get_config("chat.stream_timeout")
+        first_timeout = get_config("chat.stream_first_timeout", 0)
+        total_timeout = get_config("chat.stream_total_timeout", 0)
 
         try:
-            async for line in proc_base._with_idle_timeout(
-                response, idle_timeout, self.model
+            async for line in proc_base._with_stream_timeouts(
+                response,
+                first_timeout=first_timeout,
+                idle_timeout=idle_timeout,
+                total_timeout=total_timeout,
+                model=self.model,
             ):
                 line = proc_base._normalize_line(line)
                 if not line:
@@ -714,13 +990,18 @@ class CollectProcessor(proc_base.BaseProcessor):
                 except orjson.JSONDecodeError:
                     continue
 
-                resp = data.get("result", {}).get("response", {})
+                result_root = data.get("result", {}) or {}
+                resp = result_root.get("response", {}) or {}
+
+                if conv := result_root.get("conversation"):
+                    if conv_id := conv.get("conversationId"):
+                        self.grok_conversation_id = conv_id
 
                 if (llm := resp.get("llmInfo")) and not fingerprint:
                     fingerprint = llm.get("modelHash", "")
 
                 if mr := resp.get("modelResponse"):
-                    response_id = mr.get("responseId", "")
+                    response_id = mr.get("responseId", "") or response_id
                     content = mr.get("message", "")
 
                     card_map: dict[str, tuple[str, str]] = {}
@@ -783,6 +1064,10 @@ class CollectProcessor(proc_base.BaseProcessor):
 
         except asyncio.CancelledError:
             logger.debug("Collect cancelled by client", extra={"model": self.model})
+        except StreamFirstTimeoutError as e:
+            logger.warning(f"Collect first response timeout: {e}", extra={"model": self.model})
+        except StreamTotalTimeoutError as e:
+            logger.warning(f"Collect total timeout: {e}", extra={"model": self.model})
         except StreamIdleTimeoutError as e:
             logger.warning(f"Collect idle timeout: {e}", extra={"model": self.model})
         except RequestsError as e:
@@ -801,6 +1086,7 @@ class CollectProcessor(proc_base.BaseProcessor):
             await self.close()
 
         content = self._filter_content(content)
+        self.response_id = response_id
 
         return {
             "id": response_id,
@@ -844,3 +1130,6 @@ __all__ = [
     "MessageExtractor",
     "ChatService",
 ]
+
+
+

@@ -8,7 +8,11 @@ from typing import Any, AsyncGenerator, Optional, AsyncIterable, List, TypeVar
 
 from app.core.config import get_config
 from app.core.logger import logger
-from app.core.exceptions import StreamIdleTimeoutError
+from app.core.exceptions import (
+    StreamIdleTimeoutError,
+    StreamFirstTimeoutError,
+    StreamTotalTimeoutError,
+)
 from app.services.grok.utils.download import DownloadService
 
 
@@ -115,6 +119,96 @@ async def _with_idle_timeout(
             break
 
 
+async def _with_stream_timeouts(
+    iterable: AsyncIterable[T],
+    *,
+    first_timeout: float = 0.0,
+    idle_timeout: float = 0.0,
+    total_timeout: float = 0.0,
+    model: str = "",
+) -> AsyncGenerator[T, None]:
+    """
+    包装异步迭代器，添加首次响应、空闲与总时长超时
+    """
+    if first_timeout <= 0 and idle_timeout <= 0 and total_timeout <= 0:
+        async for item in iterable:
+            yield item
+        return
+
+    iterator = iterable.__aiter__()
+    start_time = time.monotonic()
+    is_first = True
+
+    async def _maybe_aclose(it):
+        aclose = getattr(it, "aclose", None)
+        if not aclose:
+            return
+        try:
+            await aclose()
+        except Exception:
+            pass
+
+    while True:
+        stage_timeout = None
+        if is_first and first_timeout > 0:
+            stage_timeout = first_timeout
+        elif idle_timeout > 0:
+            stage_timeout = idle_timeout
+
+        total_remaining = None
+        if total_timeout > 0:
+            total_remaining = total_timeout - (time.monotonic() - start_time)
+            if total_remaining <= 0:
+                await _maybe_aclose(iterator)
+                raise StreamTotalTimeoutError(total_timeout)
+
+        effective_timeout = stage_timeout
+        total_is_limit = False
+        if total_remaining is not None:
+            if effective_timeout is None or effective_timeout <= 0:
+                effective_timeout = total_remaining
+                total_is_limit = True
+            elif total_remaining < effective_timeout:
+                effective_timeout = total_remaining
+                total_is_limit = True
+
+        try:
+            if effective_timeout is not None and effective_timeout > 0:
+                item = await asyncio.wait_for(
+                    iterator.__anext__(), timeout=effective_timeout
+                )
+            else:
+                item = await iterator.__anext__()
+            yield item
+            is_first = False
+        except asyncio.TimeoutError:
+            if total_is_limit and total_timeout > 0:
+                logger.warning(
+                    f"Stream total timeout after {total_timeout}s",
+                    extra={"model": model, "total_timeout": total_timeout},
+                )
+                await _maybe_aclose(iterator)
+                raise StreamTotalTimeoutError(total_timeout)
+            if is_first and first_timeout > 0:
+                logger.warning(
+                    f"Stream first response timeout after {first_timeout}s",
+                    extra={"model": model, "first_timeout": first_timeout},
+                )
+                await _maybe_aclose(iterator)
+                raise StreamFirstTimeoutError(first_timeout)
+            logger.warning(
+                f"Stream idle timeout after {idle_timeout}s",
+                extra={"model": model, "idle_timeout": idle_timeout},
+            )
+            await _maybe_aclose(iterator)
+            raise StreamIdleTimeoutError(idle_timeout)
+        except asyncio.CancelledError:
+            await _maybe_aclose(iterator)
+            raise
+        except StopAsyncIteration:
+            break
+
+
 class BaseProcessor:
     """基础处理器"""
 
@@ -146,6 +240,7 @@ class BaseProcessor:
 __all__ = [
     "BaseProcessor",
     "_with_idle_timeout",
+    "_with_stream_timeouts",
     "_normalize_line",
     "_collect_images",
     "_is_http2_error",

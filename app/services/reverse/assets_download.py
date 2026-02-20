@@ -10,6 +10,7 @@ from curl_cffi.requests import AsyncSession
 from app.core.logger import logger
 from app.core.config import get_config
 from app.core.exceptions import UpstreamException
+from app.services.proxy_pool import get_proxy_url, build_proxies
 from app.services.token.service import TokenService
 from app.services.reverse.utils.headers import build_headers
 from app.services.reverse.utils.retry import retry_on_status
@@ -48,12 +49,8 @@ class AssetsDownloadReverse:
             url = f"{DOWNLOAD_API}{file_path}"
 
             # Get proxies
-            base_proxy = get_config("proxy.base_proxy_url")
-            assert_proxy = get_config("proxy.asset_proxy_url")
-            if assert_proxy:
-                proxies = {"http": assert_proxy, "https": assert_proxy}
-            else:
-                proxies = {"http": base_proxy, "https": base_proxy}
+            proxy_url = await get_proxy_url(for_asset=True)
+            proxies = build_proxies(proxy_url)
 
             # Guess content type by extension for Accept/Sec-Fetch-Dest
             content_type = _CONTENT_TYPES.get(Path(urllib.parse.urlparse(file_path).path).suffix.lower())
@@ -130,3 +127,7 @@ class AssetsDownloadReverse:
 
 
 __all__ = ["AssetsDownloadReverse"]
+
+
+
+

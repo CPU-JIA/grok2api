@@ -17,17 +17,24 @@ from app.core.exceptions import (
     ErrorType,
     UpstreamException,
     StreamIdleTimeoutError,
+    StreamFirstTimeoutError,
+    StreamTotalTimeoutError,
 )
 from app.core.logger import logger
 from app.services.grok.utils.process import (
     BaseProcessor,
-    _with_idle_timeout,
+    _with_stream_timeouts,
     _normalize_line,
     _collect_images,
     _is_http2_error,
 )
 from app.services.grok.utils.upload import UploadService
-from app.services.grok.utils.retry import pick_token, rate_limited
+from app.services.grok.utils.retry import (
+    pick_token,
+    rate_limited,
+    extract_status_code,
+    rate_limit_has_quota,
+)
 from app.services.grok.services.chat import GrokChatService
 from app.services.grok.services.video import VideoService
 from app.services.grok.utils.stream import wrap_stream_with_usage
@@ -148,9 +155,28 @@ class ImageEditService:
             except UpstreamException as e:
                 last_error = e
                 if rate_limited(e):
-                    await token_mgr.mark_rate_limited(current_token)
+                    has_quota = rate_limit_has_quota(e)
+                    await token_mgr.apply_cooldown(
+                        current_token,
+                        429,
+                        has_quota=has_quota,
+                        reason="rate_limit",
+                    )
                     logger.warning(
                         f"Token {current_token[:10]}... rate limited (429), "
+                        f"trying next token (attempt {attempt + 1}/{max_token_retries})"
+                    )
+                    continue
+
+                status = extract_status_code(e)
+                if status and status not in (401, 403):
+                    await token_mgr.apply_cooldown(
+                        current_token,
+                        int(status),
+                        reason=f"status_{status}",
+                    )
+                    logger.warning(
+                        f"Token {current_token[:10]}... status={status}, "
                         f"trying next token (attempt {attempt + 1}/{max_token_retries})"
                     )
                     continue
@@ -309,9 +335,17 @@ class ImageStreamProcessor(BaseProcessor):
         """Process stream response."""
         final_images = []
         idle_timeout = get_config("image.stream_timeout")
+        first_timeout = get_config("image.stream_first_timeout", 0)
+        total_timeout = get_config("image.stream_total_timeout", 0)
 
         try:
-            async for line in _with_idle_timeout(response, idle_timeout, self.model):
+            async for line in _with_stream_timeouts(
+                response,
+                first_timeout=first_timeout,
+                idle_timeout=idle_timeout,
+                total_timeout=total_timeout,
+                model=self.model,
+            ):
                 line = _normalize_line(line)
                 if not line:
                     continue
@@ -399,6 +433,26 @@ class ImageStreamProcessor(BaseProcessor):
                 )
         except asyncio.CancelledError:
             logger.debug("Image stream cancelled by client")
+        except StreamFirstTimeoutError as e:
+            raise UpstreamException(
+                message=f"Image stream first response timeout after {e.first_seconds}s",
+                status_code=504,
+                details={
+                    "error": str(e),
+                    "type": "stream_first_timeout",
+                    "first_seconds": e.first_seconds,
+                },
+            )
+        except StreamTotalTimeoutError as e:
+            raise UpstreamException(
+                message=f"Image stream total timeout after {e.total_seconds}s",
+                status_code=504,
+                details={
+                    "error": str(e),
+                    "type": "stream_total_timeout",
+                    "total_seconds": e.total_seconds,
+                },
+            )
         except StreamIdleTimeoutError as e:
             raise UpstreamException(
                 message=f"Image stream idle timeout after {e.idle_seconds}s",
@@ -446,9 +500,17 @@ class ImageCollectProcessor(BaseProcessor):
         """Process and collect images."""
         images = []
         idle_timeout = get_config("image.stream_timeout")
+        first_timeout = get_config("image.stream_first_timeout", 0)
+        total_timeout = get_config("image.stream_total_timeout", 0)
 
         try:
-            async for line in _with_idle_timeout(response, idle_timeout, self.model):
+            async for line in _with_stream_timeouts(
+                response,
+                first_timeout=first_timeout,
+                idle_timeout=idle_timeout,
+                total_timeout=total_timeout,
+                model=self.model,
+            ):
                 line = _normalize_line(line)
                 if not line:
                     continue
@@ -488,6 +550,10 @@ class ImageCollectProcessor(BaseProcessor):
 
         except asyncio.CancelledError:
             logger.debug("Image collect cancelled by client")
+        except StreamFirstTimeoutError as e:
+            logger.warning(f"Image collect first response timeout: {e}")
+        except StreamTotalTimeoutError as e:
+            logger.warning(f"Image collect total timeout: {e}")
         except StreamIdleTimeoutError as e:
             logger.warning(f"Image collect idle timeout: {e}")
         except RequestsError as e:
@@ -507,3 +573,5 @@ class ImageCollectProcessor(BaseProcessor):
 
 
 __all__ = ["ImageEditService", "ImageEditResult"]
+
+

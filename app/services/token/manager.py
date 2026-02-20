@@ -60,6 +60,8 @@ class TokenManager:
         self._last_usage_flush_at = 0.0
         self._dirty_tokens = {}
         self._dirty_deletes = set()
+        self._cooldown_seq = 0
+        self._cooldown_tokens: set[str] = set()
 
     @classmethod
     async def get_instance(cls) -> "TokenManager":
@@ -117,6 +119,8 @@ class TokenManager:
                             continue
                     pool._rebuild_index()
                     self.pools[pool_name] = pool
+
+                self._rebuild_cooldown_index()
 
                 self.initialized = True
                 self._last_reload_at = time.monotonic()
@@ -286,6 +290,63 @@ class TokenManager:
             if self._dirty:
                 self._schedule_save()
 
+    def _find_token_info(self, raw_token: str) -> tuple[Optional[TokenInfo], Optional[TokenPool]]:
+        for pool in self.pools.values():
+            token = pool.get(raw_token)
+            if token:
+                return token, pool
+        return None, None
+
+    def _track_cooldown(self, token: TokenInfo) -> None:
+        if token.cooldown_until or token.cooldown_until_seq:
+            self._cooldown_tokens.add(token.token)
+        else:
+            self._cooldown_tokens.discard(token.token)
+
+    def _rebuild_cooldown_index(self) -> None:
+        self._cooldown_tokens = set()
+        for pool in self.pools.values():
+            for token in pool:
+                if token.cooldown_until or token.cooldown_until_seq:
+                    self._cooldown_tokens.add(token.token)
+
+    def _tick_cooldowns(self) -> None:
+        self._cooldown_seq += 1
+        if not self._cooldown_tokens:
+            return
+
+        now_ms = int(time.time() * 1000)
+        for token_str in list(self._cooldown_tokens):
+            token_info, pool = self._find_token_info(token_str)
+            if not token_info or not pool:
+                self._cooldown_tokens.discard(token_str)
+                continue
+
+            if token_info.status != TokenStatus.COOLING:
+                self._cooldown_tokens.discard(token_str)
+                continue
+
+            time_ready = True
+            seq_ready = True
+            if token_info.cooldown_until and now_ms < token_info.cooldown_until:
+                time_ready = False
+            if token_info.cooldown_until_seq and self._cooldown_seq < token_info.cooldown_until_seq:
+                seq_ready = False
+
+            if not (time_ready and seq_ready):
+                continue
+
+            old_quota = token_info.quota
+            old_status = token_info.status
+            token_info.cooldown_until = None
+            token_info.cooldown_until_seq = None
+            token_info.cooldown_reason = None
+            if token_info.quota > 0:
+                token_info.status = TokenStatus.ACTIVE
+
+            pool.update_index(token_info, old_quota, old_status)
+            self._cooldown_tokens.discard(token_str)
+
     def get_token(self, pool_name: str = "ssoBasic", exclude: set = None) -> Optional[str]:
         """
         获取可用 Token
@@ -297,6 +358,7 @@ class TokenManager:
         Returns:
             Token 字符串或 None
         """
+        self._tick_cooldowns()
         pool = self.pools.get(pool_name)
         if not pool:
             logger.warning(f"Pool '{pool_name}' not found")
@@ -322,6 +384,7 @@ class TokenManager:
         Returns:
             TokenInfo 对象或 None
         """
+        self._tick_cooldowns()
         pool = self.pools.get(pool_name)
         if not pool:
             logger.warning(f"Pool '{pool_name}' not found")
@@ -356,6 +419,7 @@ class TokenManager:
         Returns:
             TokenInfo 对象或 None（无可用 token）
         """
+        self._tick_cooldowns()
         # 确定首选池
         requires_super = resolution == "720p" or video_length > 6
         primary_pool = SUPER_POOL_NAME if requires_super else BASIC_POOL_NAME
@@ -426,8 +490,10 @@ class TokenManager:
         for pool in self.pools.values():
             token = pool.get(raw_token)
             if token:
+                old_quota = token.quota
                 old_status = token.status
                 consumed = token.consume(effort)
+                pool.update_index(token, old_quota, old_status)
                 logger.debug(
                     f"Token {raw_token[:10]}...: consumed {consumed} quota, use_count={token.use_count}"
                 )
@@ -491,6 +557,10 @@ class TokenManager:
 
                 target_token.update_quota(new_quota)
                 target_token.record_success(is_usage=is_usage)
+                for pool in self.pools.values():
+                    if pool.get(raw_token):
+                        pool.update_index(target_token, old_quota, old_status)
+                        break
 
                 consumed = max(0, old_quota - new_quota)
                 logger.info(
@@ -548,6 +618,8 @@ class TokenManager:
         for pool in self.pools.values():
             token = pool.get(raw_token)
             if token:
+                old_quota = token.quota
+                old_status = token.status
                 if status_code == 401:
                     threshold = get_config("token.fail_threshold", FAIL_THRESHOLD)
                     try:
@@ -568,6 +640,8 @@ class TokenManager:
                     logger.info(
                         f"Token {raw_token[:10]}...: non-auth error ({status_code}) - {reason} (not counted)"
                     )
+                pool.update_index(token, old_quota, old_status)
+                self._schedule_save()
                 return True
 
         logger.warning(f"Token {raw_token[:10]}...: not found for failure record")
@@ -586,24 +660,89 @@ class TokenManager:
         Returns:
             是否成功
         """
+        return await self.apply_cooldown(token_str, status_code=429)
+
+    async def apply_cooldown(
+        self,
+        token_str: str,
+        status_code: int,
+        *,
+        has_quota: Optional[bool] = None,
+        reason: str = "",
+    ) -> bool:
+        """
+        应用冷却策略
+        - 429 有额度：冷却 1 小时
+        - 429 无额度：冷却 10 小时（并将 quota 置 0）
+        - 其他错误：次数冷却（默认 5 次请求）
+        """
         raw_token = token_str.removeprefix("sso=")
+        token_info, pool = self._find_token_info(raw_token)
+        if not token_info or not pool:
+            logger.warning(f"Token {raw_token[:10]}...: not found for cooldown")
+            return False
 
-        for pool in self.pools.values():
-            token = pool.get(raw_token)
-            if token:
-                old_quota = token.quota
-                token.quota = 0
-                token.status = TokenStatus.COOLING
-                logger.warning(
-                    f"Token {raw_token[:10]}...: marked as rate limited "
-                    f"(quota {old_quota} -> 0, status -> cooling)"
-                )
-                self._track_token_change(token, pool.name, "state")
-                self._schedule_save()
-                return True
+        old_quota = token_info.quota
+        old_status = token_info.status
+        now_ms = int(time.time() * 1000)
 
-        logger.warning(f"Token {raw_token[:10]}...: not found for rate limit marking")
-        return False
+        if status_code == 429:
+            if has_quota is None:
+                has_quota = token_info.quota > 0
+
+            if has_quota:
+                cooldown_sec = get_config("token.cooldown_429_quota_sec", 3600)
+                token_info.cooldown_reason = "rate_limit_with_quota"
+            else:
+                cooldown_sec = get_config("token.cooldown_429_empty_sec", 36000)
+                token_info.cooldown_reason = "rate_limit_no_quota"
+                token_info.quota = 0
+
+            try:
+                cooldown_sec = int(cooldown_sec)
+            except Exception:
+                cooldown_sec = 3600 if has_quota else 36000
+
+            token_info.cooldown_until = now_ms + max(1, cooldown_sec) * 1000
+            token_info.cooldown_until_seq = None
+            token_info.status = TokenStatus.COOLING
+            self._track_cooldown(token_info)
+            pool.update_index(token_info, old_quota, old_status)
+            self._track_token_change(token_info, pool.name, "state")
+            logger.warning(
+                f"Token {raw_token[:10]}...: rate limited ({'quota' if has_quota else 'empty'}), "
+                f"cooldown {cooldown_sec}s"
+            )
+            self._schedule_save()
+            return True
+
+        # 次数冷却（跳过 401/403）
+        if status_code in (401, 403):
+            return False
+
+        if token_info.quota == 0:
+            return False
+
+        cooldown_requests = get_config("token.cooldown_error_requests", 5)
+        try:
+            cooldown_requests = int(cooldown_requests)
+        except Exception:
+            cooldown_requests = 5
+        if cooldown_requests <= 0:
+            return False
+
+        token_info.cooldown_until_seq = self._cooldown_seq + cooldown_requests
+        token_info.cooldown_until = None
+        token_info.cooldown_reason = reason or "error"
+        token_info.status = TokenStatus.COOLING
+        self._track_cooldown(token_info)
+        pool.update_index(token_info, old_quota, old_status)
+        self._track_token_change(token_info, pool.name, "state")
+        logger.info(
+            f"Token {raw_token[:10]}...: error cooldown for {cooldown_requests} requests"
+        )
+        self._schedule_save()
+        return True
 
     # ========== 管理功能 ==========
 
@@ -720,7 +859,10 @@ class TokenManager:
         for pool_name, pool in self.pools.items():
             default_quota = _default_quota_for_pool(pool_name)
             for token in pool:
+                old_quota = token.quota
+                old_status = token.status
                 token.reset(default_quota)
+                pool.update_index(token, old_quota, old_status)
                 self._track_token_change(token, pool_name, "state")
                 count += 1
 
@@ -742,8 +884,11 @@ class TokenManager:
         for pool in self.pools.values():
             token = pool.get(raw_token)
             if token:
+                old_quota = token.quota
+                old_status = token.status
                 default_quota = _default_quota_for_pool(pool.name)
                 token.reset(default_quota)
+                pool.update_index(token, old_quota, old_status)
                 self._track_token_change(token, pool.name, "state")
                 await self._save(force=True)
                 logger.info(f"Token {raw_token[:10]}...: reset completed")
@@ -836,6 +981,10 @@ class TokenManager:
 
                             token_info.update_quota(new_quota)
                             token_info.mark_synced()
+                            for pool in self.pools.values():
+                                if pool.get(token_info.token):
+                                    pool.update_index(token_info, old_quota, old_status)
+                                    break
 
                             logger.info(
                                 f"Token {token_info.token[:10]}...: refreshed "

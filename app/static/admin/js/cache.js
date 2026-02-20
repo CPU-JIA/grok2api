@@ -1,3 +1,4 @@
+(() => {
 let apiKey = '';
 let currentScope = 'none';
 let currentToken = '';
@@ -24,6 +25,11 @@ const UI_MAP = {
   imgSize: 'img-size',
   videoCount: 'video-count',
   videoSize: 'video-size',
+  cacheMeta: 'cache-meta',
+  cacheGallery: 'cache-gallery',
+  cacheLocalSection: 'cache-local',
+  cacheOnlineSection: 'cache-online',
+  cacheRefreshBtn: 'cache-refresh-btn',
   onlineCount: 'online-count',
   onlineStatus: 'online-status',
   onlineLastClear: 'online-last-clear',
@@ -85,14 +91,19 @@ function createIconButton(title, svg, onClick) {
 
 async function init() {
   apiKey = await ensureAdminKey();
-  if (apiKey === null) return;
+  if (apiKey === null) return false;
   cacheUI();
   setupCacheCards();
+  setupTopTabs();
   setupConfirmDialog();
   setupFailureDialog();
   setupBatchControls();
+  if (window.__setupBatchActionsDrag) {
+    window.__setupBatchActionsDrag(document.getElementById('batch-actions'));
+  }
   await loadStats();
   await showCacheSection('image');
+  return true;
 }
 
 function setupCacheCards() {
@@ -105,11 +116,31 @@ function setupCacheCards() {
   });
 }
 
+function setupTopTabs() {
+  if (ui.cacheTabButtons) {
+    ui.cacheTabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.getAttribute('data-cache-tab');
+        if (type) showCacheSection(type);
+      });
+    });
+  }
+  if (ui.cacheRefreshBtn) {
+    ui.cacheRefreshBtn.addEventListener('click', async () => {
+      await loadStats({ silent: true });
+      if (currentSection === 'image' || currentSection === 'video') {
+        await loadLocalCacheList(currentSection);
+      }
+    });
+  }
+}
+
 function cacheUI() {
   Object.entries(UI_MAP).forEach(([key, id]) => {
     ui[key] = byId(id);
   });
   ui.cacheCards = document.querySelectorAll('.cache-card');
+  ui.cacheTabButtons = document.querySelectorAll('[data-cache-tab]');
 }
 
 function ensureUI() {
@@ -591,7 +622,11 @@ function updateSelectedCount() {
 function updateBatchActionsVisibility() {
   const bar = ui.batchActions;
   if (!bar) return;
-  bar.classList.remove('hidden');
+  if (currentSection === 'online') {
+    bar.classList.remove('hidden');
+  } else {
+    bar.classList.add('hidden');
+  }
 }
 
 function updateLoadButton() {
@@ -716,9 +751,25 @@ function formatSize(bytes) {
   return `${bytes} B`;
 }
 
+function setCacheTabActive(type) {
+  if (!ui.cacheTabButtons) return;
+  ui.cacheTabButtons.forEach(btn => {
+    const tabType = btn.getAttribute('data-cache-tab');
+    btn.classList.toggle('active', tabType === type);
+  });
+}
+
+function updateCacheMeta(type, items) {
+  if (!ui.cacheMeta) return;
+  const label = type === 'video' ? '视频' : '图片';
+  const count = Array.isArray(items) ? items.length : 0;
+  ui.cacheMeta.textContent = `${label}缓存：${count} 个`;
+}
+
 async function showCacheSection(type) {
   ensureUI();
   currentSection = type;
+  setCacheTabActive(type);
   if (ui.cacheCards) {
     ui.cacheCards.forEach(card => {
       const cardType = card.getAttribute('data-type');
@@ -730,8 +781,12 @@ async function showCacheSection(type) {
     cacheListState.video.visible = false;
     if (cacheListState.image.loaded) renderLocalCacheList('image', cacheListState.image.items);
     else await loadLocalCacheList('image');
-    if (ui.localCacheLists) ui.localCacheLists.classList.remove('hidden');
-    if (ui.localImageList) ui.localImageList.classList.remove('hidden');
+    if (ui.cacheLocalSection) ui.cacheLocalSection.classList.remove('hidden');
+    if (ui.cacheOnlineSection) ui.cacheOnlineSection.classList.add('hidden');
+    if (ui.cacheGallery) ui.cacheGallery.classList.remove('hidden');
+    if (ui.cacheMeta) ui.cacheMeta.classList.remove('hidden');
+    if (ui.localCacheLists) ui.localCacheLists.classList.add('hidden');
+    if (ui.localImageList) ui.localImageList.classList.add('hidden');
     if (ui.localVideoList) ui.localVideoList.classList.add('hidden');
     if (ui.onlineAssetsTable) ui.onlineAssetsTable.classList.add('hidden');
     updateToolbarForSection();
@@ -742,9 +797,13 @@ async function showCacheSection(type) {
     cacheListState.image.visible = false;
     if (cacheListState.video.loaded) renderLocalCacheList('video', cacheListState.video.items);
     else await loadLocalCacheList('video');
-    if (ui.localCacheLists) ui.localCacheLists.classList.remove('hidden');
-    if (ui.localVideoList) ui.localVideoList.classList.remove('hidden');
+    if (ui.cacheLocalSection) ui.cacheLocalSection.classList.remove('hidden');
+    if (ui.cacheOnlineSection) ui.cacheOnlineSection.classList.add('hidden');
+    if (ui.cacheGallery) ui.cacheGallery.classList.remove('hidden');
+    if (ui.cacheMeta) ui.cacheMeta.classList.remove('hidden');
+    if (ui.localCacheLists) ui.localCacheLists.classList.add('hidden');
     if (ui.localImageList) ui.localImageList.classList.add('hidden');
+    if (ui.localVideoList) ui.localVideoList.classList.add('hidden');
     if (ui.onlineAssetsTable) ui.onlineAssetsTable.classList.add('hidden');
     updateToolbarForSection();
     return;
@@ -752,6 +811,10 @@ async function showCacheSection(type) {
   if (type === 'online') {
     cacheListState.image.visible = false;
     cacheListState.video.visible = false;
+    if (ui.cacheLocalSection) ui.cacheLocalSection.classList.add('hidden');
+    if (ui.cacheOnlineSection) ui.cacheOnlineSection.classList.remove('hidden');
+    if (ui.cacheGallery) ui.cacheGallery.classList.add('hidden');
+    if (ui.cacheMeta) ui.cacheMeta.classList.add('hidden');
     if (ui.localCacheLists) ui.localCacheLists.classList.add('hidden');
     if (ui.localImageList) ui.localImageList.classList.add('hidden');
     if (ui.localVideoList) ui.localVideoList.classList.add('hidden');
@@ -766,15 +829,21 @@ async function toggleCacheList(type) {
 
 async function loadLocalCacheList(type) {
   const body = type === 'image' ? ui.localImageBody : ui.localVideoBody;
-  if (!body) return;
-  body.innerHTML = `<tr><td colspan="5">加载中...</td></tr>`;
+  if (ui.cacheGallery) {
+    ui.cacheGallery.innerHTML = `<div class="text-center py-12 text-[var(--accents-4)]">加载中...</div>`;
+  }
+  if (!body && !ui.cacheGallery) return;
+  if (body) body.innerHTML = `<tr><td colspan="5">加载中...</td></tr>`;
   try {
     const params = new URLSearchParams({ type, page: '1', page_size: '1000' });
     const res = await fetch(`/v1/admin/cache/list?${params.toString()}`, {
       headers: buildAuthHeaders(apiKey)
     });
     if (!res.ok) {
-      body.innerHTML = `<tr><td colspan="5">加载失败</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="5">加载失败</td></tr>`;
+      if (ui.cacheGallery) {
+        ui.cacheGallery.innerHTML = `<div class="text-center py-12 text-[var(--accents-4)]">加载失败</div>`;
+      }
       return;
     }
     const data = await res.json();
@@ -788,11 +857,90 @@ async function loadLocalCacheList(type) {
     });
     renderLocalCacheList(type, items);
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="5">加载失败</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="5">加载失败</td></tr>`;
+    if (ui.cacheGallery) {
+      ui.cacheGallery.innerHTML = `<div class="text-center py-12 text-[var(--accents-4)]">加载失败</div>`;
+    }
   }
 }
 
+function resolveLocalPreviewUrl(type, item) {
+  if (!item) return '';
+  if (item.preview_url) return item.preview_url;
+  if (item.view_url) return item.view_url;
+  if (item.url) return item.url;
+  const safeName = encodeURIComponent(item.name || '');
+  if (type === 'video') return `/v1/files/video/${safeName}`;
+  return `/v1/files/image/${safeName}`;
+}
+
+function renderLocalCacheGallery(type, items) {
+  const gallery = ui.cacheGallery;
+  if (!gallery) return;
+  if (!items || items.length === 0) {
+    gallery.innerHTML = `<div class="text-center py-12 text-[var(--accents-4)]">暂无缓存文件</div>`;
+    updateCacheMeta(type, items);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'cache-gallery-item';
+
+    const mediaUrl = resolveLocalPreviewUrl(type, item);
+    if (type === 'video') {
+      const video = document.createElement('video');
+      video.src = mediaUrl;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      card.appendChild(video);
+    } else {
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.src = mediaUrl;
+      img.alt = '';
+      card.appendChild(img);
+    }
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'text-xs font-mono text-gray-600 truncate';
+    nameEl.title = item.name || '';
+    nameEl.textContent = item.name || '';
+    card.appendChild(nameEl);
+
+    const metaEl = document.createElement('div');
+    metaEl.className = 'cache-gallery-meta';
+    metaEl.textContent = `${formatSize(item.size_bytes)} · ${formatTime(item.mtime_ms) || '-'}`;
+    card.appendChild(metaEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'cache-gallery-actions';
+    const viewBtn = document.createElement('button');
+    viewBtn.type = 'button';
+    viewBtn.textContent = '查看';
+    viewBtn.addEventListener('click', () => viewLocalFile(type, item.name));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.textContent = '删除';
+    delBtn.addEventListener('click', () => deleteLocalFile(type, item.name));
+    actions.appendChild(viewBtn);
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+
+    fragment.appendChild(card);
+  });
+  gallery.replaceChildren(fragment);
+  updateCacheMeta(type, items);
+}
+
 function renderLocalCacheList(type, items) {
+  updateCacheMeta(type, items);
+  if (ui.cacheGallery) {
+    renderLocalCacheGallery(type, items);
+    return;
+  }
   const body = type === 'image' ? ui.localImageBody : ui.localVideoBody;
   if (!body) return;
   if (!items || items.length === 0) {
@@ -821,9 +969,10 @@ function renderLocalCacheList(type, items) {
     tdName.className = 'text-left';
     const nameWrap = document.createElement('div');
     nameWrap.className = 'flex items-center gap-2';
-    if (item.preview_url) {
+    const previewUrl = item.preview_url || item.view_url;
+    if (previewUrl) {
       const img = document.createElement('img');
-      img.src = item.preview_url;
+      img.src = previewUrl;
       img.alt = '';
       img.className = 'cache-preview';
       nameWrap.appendChild(img);
@@ -846,13 +995,13 @@ function renderLocalCacheList(type, items) {
     tdActions.className = 'text-center';
     tdActions.innerHTML = `
       <div class="cache-list-actions">
-        <button class="cache-icon-button" onclick="viewLocalFile('${type}', '${item.name}')" title="查看">
+        <button class="cache-icon-button" onclick="__adminCache.viewLocalFile('${type}', '${item.name}')" title="查看">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
             <circle cx="12" cy="12" r="3"></circle>
           </svg>
         </button>
-        <button class="cache-icon-button" onclick="deleteLocalFile('${type}', '${item.name}')" title="删除">
+        <button class="cache-icon-button" onclick="__adminCache.deleteLocalFile('${type}', '${item.name}')" title="删除">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1357,4 +1506,37 @@ async function clearOnlineCache(targetToken = '', skipConfirm = false) {
   }
 }
 
-window.onload = init;
+window.__adminCache = {
+  clearCache,
+  toggleLocalSelectAll,
+  toggleSelectAll,
+  handleLoadClick,
+  handleDeleteClick,
+  viewLocalFile,
+  deleteLocalFile
+};
+
+let cacheInitStarted = false;
+async function initCachePage() {
+  if (cacheInitStarted) return;
+  cacheInitStarted = true;
+  try {
+    const ok = await init();
+    if (ok === false) {
+      cacheInitStarted = false;
+    }
+  } catch (e) {
+    cacheInitStarted = false;
+    throw e;
+  }
+}
+
+if (window.__registerAdminPage) {
+  window.__registerAdminPage('cache', initCachePage);
+} else if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCachePage);
+} else {
+  initCachePage();
+}
+})();
+

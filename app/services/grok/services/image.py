@@ -17,7 +17,12 @@ from app.core.logger import logger
 from app.core.storage import DATA_DIR
 from app.core.exceptions import AppException, ErrorType, UpstreamException
 from app.services.grok.utils.process import BaseProcessor
-from app.services.grok.utils.retry import pick_token, rate_limited
+from app.services.grok.utils.retry import (
+    pick_token,
+    rate_limited,
+    extract_status_code,
+    rate_limit_has_quota,
+)
 from app.services.grok.utils.stream import wrap_stream_with_usage
 from app.services.token import EffortType
 from app.services.reverse.ws_imagine import ImagineWebSocketReverse
@@ -95,9 +100,28 @@ class ImageGenerationService:
                         if rate_limited(e):
                             if yielded:
                                 raise
-                            await token_mgr.mark_rate_limited(current_token)
+                            has_quota = rate_limit_has_quota(e)
+                            await token_mgr.apply_cooldown(
+                                current_token,
+                                429,
+                                has_quota=has_quota,
+                                reason="rate_limit",
+                            )
                             logger.warning(
                                 f"Token {current_token[:10]}... rate limited (429), "
+                                f"trying next token (attempt {attempt + 1}/{max_token_retries})"
+                            )
+                            continue
+
+                        status = extract_status_code(e)
+                        if status and status not in (401, 403):
+                            await token_mgr.apply_cooldown(
+                                current_token,
+                                int(status),
+                                reason=f"status_{status}",
+                            )
+                            logger.warning(
+                                f"Token {current_token[:10]}... status={status}, "
                                 f"trying next token (attempt {attempt + 1}/{max_token_retries})"
                             )
                             continue
@@ -144,9 +168,28 @@ class ImageGenerationService:
             except UpstreamException as e:
                 last_error = e
                 if rate_limited(e):
-                    await token_mgr.mark_rate_limited(current_token)
+                    has_quota = rate_limit_has_quota(e)
+                    await token_mgr.apply_cooldown(
+                        current_token,
+                        429,
+                        has_quota=has_quota,
+                        reason="rate_limit",
+                    )
                     logger.warning(
                         f"Token {current_token[:10]}... rate limited (429), "
+                        f"trying next token (attempt {attempt + 1}/{max_token_retries})"
+                    )
+                    continue
+
+                status = extract_status_code(e)
+                if status and status not in (401, 403):
+                    await token_mgr.apply_cooldown(
+                        current_token,
+                        int(status),
+                        reason=f"status_{status}",
+                    )
+                    logger.warning(
+                        f"Token {current_token[:10]}... status={status}, "
                         f"trying next token (attempt {attempt + 1}/{max_token_retries})"
                     )
                     continue
@@ -612,3 +655,9 @@ class ImageWSCollectProcessor(ImageWSBaseProcessor):
 
 
 __all__ = ["ImageGenerationService"]
+
+
+
+
+
+

@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from app.core.logger import logger
 from app.core.config import get_config
+from app.services.proxy_pool import proxy_pool
 
 
 def _default_ssl_context() -> ssl.SSLContext:
@@ -112,7 +113,7 @@ class WebSocketClient:
             WebSocketConnection: The WebSocket connection.
         """
         # Resolve proxy dynamically from config if not overridden
-        proxy_url = self._proxy_override or get_config("proxy.base_proxy_url")
+        proxy_url = self._proxy_override or proxy_pool.get_current_proxy() or get_config("proxy.base_proxy_url")
         connector, resolved_proxy = resolve_proxy(proxy_url, self._ssl_context)
         logger.debug(f"WebSocket connect: proxy_url={proxy_url}, resolved_proxy={resolved_proxy}, connector={type(connector).__name__}")
 
@@ -143,3 +144,4 @@ class WebSocketClient:
 
 
 __all__ = ["WebSocketClient", "WebSocketConnection", "resolve_proxy"]
+

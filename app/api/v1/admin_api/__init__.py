@@ -5,11 +5,19 @@ from fastapi import APIRouter
 from app.api.v1.admin_api.cache import router as cache_router
 from app.api.v1.admin_api.config import router as config_router
 from app.api.v1.admin_api.token import router as tokens_router
+from app.api.v1.admin_api.keys import router as keys_router
+from app.api.v1.admin_api.stats import router as stats_router
+from app.api.v1.admin_api.logs import router as logs_router
+from app.api.v1.admin_api.sessions import router as sessions_router
 
 router = APIRouter()
 
 router.include_router(config_router)
 router.include_router(tokens_router)
 router.include_router(cache_router)
+router.include_router(keys_router)
+router.include_router(stats_router)
+router.include_router(logs_router)
+router.include_router(sessions_router)
 
 __all__ = ["router"]
