@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional, Union
 import base64
 import binascii
 import time
+import uuid
 
-import orjson
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,7 @@ from app.services.grok.services.image import ImageGenerationService
 from app.services.grok.services.image_edit import ImageEditService
 from app.services.grok.services.model import ModelService
 from app.services.grok.services.video import VideoService
+from app.services.grok.utils.response import make_chat_response
 from app.services.token import get_token_manager
 from app.core.config import get_config
 from app.core.exceptions import ValidationException, AppException, ErrorType
@@ -54,7 +55,6 @@ class ChatCompletionRequest(BaseModel):
     reasoning_effort: Optional[str] = Field(None, description="推理强度: none/minimal/low/medium/high/xhigh")
     temperature: Optional[float] = Field(0.8, description="采样温度: 0-2")
     top_p: Optional[float] = Field(0.95, description="nucleus 采样: 0-1")
-    conversation_id: Optional[str] = Field(None, description="会话 ID（用于继续对话）")
     # 视频生成配置
     video_config: Optional[VideoConfig] = Field(None, description="视频生成参数")
     # 图片生成配置
@@ -502,381 +502,174 @@ def validate_request(request: ChatCompletionRequest):
 router = APIRouter(tags=["Chat"])
 
 
-def _get_client_ip(req: Request) -> str:
-    for header in ("x-forwarded-for", "x-real-ip", "cf-connecting-ip"):
-        value = req.headers.get(header)
-        if value:
-            return value.split(",")[0].strip()
-    if req.client:
-        return req.client.host or ""
-    return ""
-
-
 @router.post("/chat/completions")
-async def chat_completions(request: ChatCompletionRequest, raw_request: Request):
+async def chat_completions(request: ChatCompletionRequest):
     """Chat Completions API - 兼容 OpenAI"""
     from app.core.logger import logger
-    from app.core.auth import get_admin_api_key
-    from app.services.api_keys import api_key_manager
-    from app.services.request_logger import request_logger
-    from app.services.request_stats import request_stats
 
     # 参数验证
     validate_request(request)
-
-    start_time = time.time()
-    client_ip = _get_client_ip(raw_request)
-    auth_header = raw_request.headers.get("authorization", "")
-    api_key = ""
-    if auth_header.lower().startswith("bearer "):
-        api_key = auth_header.split(" ", 1)[1].strip()
-    admin_key = get_admin_api_key()
-    await api_key_manager.init()
-    key_info = await api_key_manager.validate_key(api_key) if api_key else None
-    key_name = "管理员" if api_key and api_key == admin_key else (key_info.get("name") if key_info else "")
-    key_masked = api_key_manager.mask_key(api_key) if api_key else ""
-
-    async def record(success: bool, status: int, error: str | None = None, stream: bool = False):
-        duration_ms = int((time.time() - start_time) * 1000)
-        try:
-            await request_stats.record(request.model, success=success)
-            await request_logger.log(
-                model=request.model,
-                status=status,
-                duration_ms=duration_ms,
-                ip=client_ip,
-                key_name=key_name,
-                key_masked=key_masked,
-                error=error or "",
-                stream=stream,
-            )
-            if success and api_key and api_key != admin_key:
-                await api_key_manager.record_usage(api_key)
-        except Exception:
-            pass
 
     logger.debug(f"Chat request: model={request.model}, stream={request.stream}")
 
     # 检测模型类型
     model_info = ModelService.get(request.model)
-
-    def extract_status(exc: Exception) -> int:
-        status = getattr(exc, "status_code", None)
-        details = getattr(exc, "details", None)
-        if status is None and isinstance(details, dict):
-            status = details.get("status")
-        try:
-            return int(status or 500)
-        except Exception:
-            return 500
-
-    def chat_stream_error_chunks(exc: Exception) -> list[str]:
-        status = extract_status(exc)
-        message = str(exc) or "Upstream stream failed"
-        if len(message) > 400:
-            message = message[:400] + "..."
-        created = int(time.time())
-        chunk_id = f"chatcmpl-error-{int(time.time() * 1000)}"
-        model_name = request.model or "grok"
-        error_text = f"\n[Error {status}] {message}"
-        start_chunk = {
-            "id": chunk_id,
-            "object": "chat.completion.chunk",
-            "created": created,
-            "model": model_name,
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {"content": error_text},
-                    "logprobs": None,
-                    "finish_reason": None,
-                }
-            ],
-            "error": {
-                "message": message,
-                "code": "upstream_error",
-                "type": ErrorType.SERVER.value,
-                "status": status,
-            },
-        }
-        final_chunk = {
-            "id": chunk_id,
-            "object": "chat.completion.chunk",
-            "created": created,
-            "model": model_name,
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {},
-                    "logprobs": None,
-                    "finish_reason": "stop",
-                }
-            ],
-        }
-        return [
-            f"data: {orjson.dumps(start_chunk).decode()}\n\n",
-            f"data: {orjson.dumps(final_chunk).decode()}\n\n",
-            "data: [DONE]\n\n",
-        ]
-
-    def generic_stream_error_chunks(exc: Exception) -> list[str]:
-        status = extract_status(exc)
-        message = str(exc) or "Upstream stream failed"
-        if len(message) > 400:
-            message = message[:400] + "..."
-        payload = {
-            "type": "error",
-            "error": {
-                "message": message,
-                "code": "upstream_error",
-                "status": status,
-            },
-        }
-        return [
-            f"event: error\ndata: {orjson.dumps(payload).decode()}\n\n",
-            "data: [DONE]\n\n",
-        ]
-
     if model_info and model_info.is_image_edit:
-        try:
-            prompt, image_urls = _extract_prompt_images(request.messages)
-            if not image_urls:
-                raise ValidationException(
-                    message="Image is required",
-                    param="image",
-                    code="missing_image",
-                )
-            image_url = image_urls[-1]
-
-            is_stream = (
-                request.stream if request.stream is not None else get_config("app.stream")
+        prompt, image_urls = _extract_prompt_images(request.messages)
+        if not image_urls:
+            raise ValidationException(
+                message="Image is required",
+                param="image",
+                code="missing_image",
             )
-            image_conf = request.image_config or ImageConfig()
-            _validate_image_config(image_conf, stream=bool(is_stream))
-            response_format = _resolve_image_format(image_conf.response_format)
-            response_field = _image_field(response_format)
-            n = image_conf.n or 1
+        image_url = image_urls[-1]
 
-            token_mgr = await get_token_manager()
-            await token_mgr.reload_if_stale()
+        is_stream = (
+            request.stream if request.stream is not None else get_config("app.stream")
+        )
+        image_conf = request.image_config or ImageConfig()
+        _validate_image_config(image_conf, stream=bool(is_stream))
+        response_format = _resolve_image_format(image_conf.response_format)
+        response_field = _image_field(response_format)
+        n = image_conf.n or 1
 
-            token = None
-            for pool_name in ModelService.pool_candidates_for_model(request.model):
-                token = token_mgr.get_token(pool_name)
-                if token:
-                    break
+        token_mgr = await get_token_manager()
+        await token_mgr.reload_if_stale()
 
-            if not token:
-                raise AppException(
-                    message="No available tokens. Please try again later.",
-                    error_type=ErrorType.RATE_LIMIT.value,
-                    code="rate_limit_exceeded",
-                    status_code=429,
-                )
+        token = None
+        for pool_name in ModelService.pool_candidates_for_model(request.model):
+            token = token_mgr.get_token(pool_name)
+            if token:
+                break
 
-            result = await ImageEditService().edit(
-                token_mgr=token_mgr,
-                token=token,
-                model_info=model_info,
-                prompt=prompt,
-                images=[image_url],
-                n=n,
-                response_format=response_format,
-                stream=bool(is_stream),
+        if not token:
+            raise AppException(
+                message="No available tokens. Please try again later.",
+                error_type=ErrorType.RATE_LIMIT.value,
+                code="rate_limit_exceeded",
+                status_code=429,
             )
 
-            if result.stream:
-                async def stream_wrapper():
-                    ok = False
-                    err = None
-                    status = 200
-                    try:
-                        async for chunk in result.data:
-                            yield chunk
-                        ok = True
-                    except Exception as exc:
-                        err = str(exc)
-                        status = extract_status(exc)
-                        logger.warning(f"Image edit stream failed: {exc}")
-                        for chunk in generic_stream_error_chunks(exc):
-                            yield chunk
-                    finally:
-                        await record(ok, status, error=err, stream=True)
+        result = await ImageEditService().edit(
+            token_mgr=token_mgr,
+            token=token,
+            model_info=model_info,
+            prompt=prompt,
+            images=[image_url],
+            n=n,
+            response_format=response_format,
+            stream=bool(is_stream),
+            chat_format=True,
+        )
 
-                return StreamingResponse(
-                    stream_wrapper(),
-                    media_type="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-                )
-
-            data = [{response_field: img} for img in result.data]
-            await record(True, 200, stream=False)
-            return JSONResponse(
-                content={
-                    "created": int(time.time()),
-                    "data": data,
-                    "usage": {
-                        "total_tokens": 0,
-                        "input_tokens": 0,
-                        "output_tokens": 0,
-                        "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
-                    },
-                }
+        if result.stream:
+            return StreamingResponse(
+                result.data,
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
             )
-        except Exception as exc:
-            await record(False, extract_status(exc), error=str(exc), stream=bool(request.stream))
-            raise
+
+        content = result.data[0] if result.data else ""
+        return JSONResponse(
+            content=make_chat_response(request.model, content)
+        )
 
     if model_info and model_info.is_image:
-        try:
-            prompt, _ = _extract_prompt_images(request.messages)
+        prompt, _ = _extract_prompt_images(request.messages)
 
-            is_stream = (
-                request.stream if request.stream is not None else get_config("app.stream")
-            )
-            image_conf = request.image_config or ImageConfig()
-            _validate_image_config(image_conf, stream=bool(is_stream))
-            response_format = _resolve_image_format(image_conf.response_format)
-            response_field = _image_field(response_format)
-            n = image_conf.n or 1
-            size = image_conf.size or "1024x1024"
-            aspect_ratio_map = {
-                "1280x720": "16:9",
-                "720x1280": "9:16",
-                "1792x1024": "3:2",
-                "1024x1792": "2:3",
-                "1024x1024": "1:1",
-            }
-            aspect_ratio = aspect_ratio_map.get(size, "2:3")
+        is_stream = (
+            request.stream if request.stream is not None else get_config("app.stream")
+        )
+        image_conf = request.image_config or ImageConfig()
+        _validate_image_config(image_conf, stream=bool(is_stream))
+        response_format = _resolve_image_format(image_conf.response_format)
+        response_field = _image_field(response_format)
+        n = image_conf.n or 1
+        size = image_conf.size or "1024x1024"
+        aspect_ratio_map = {
+            "1280x720": "16:9",
+            "720x1280": "9:16",
+            "1792x1024": "3:2",
+            "1024x1792": "2:3",
+            "1024x1024": "1:1",
+        }
+        aspect_ratio = aspect_ratio_map.get(size, "2:3")
 
-            token_mgr = await get_token_manager()
-            await token_mgr.reload_if_stale()
+        token_mgr = await get_token_manager()
+        await token_mgr.reload_if_stale()
 
-            token = None
-            for pool_name in ModelService.pool_candidates_for_model(request.model):
-                token = token_mgr.get_token(pool_name)
-                if token:
-                    break
+        token = None
+        for pool_name in ModelService.pool_candidates_for_model(request.model):
+            token = token_mgr.get_token(pool_name)
+            if token:
+                break
 
-            if not token:
-                raise AppException(
-                    message="No available tokens. Please try again later.",
-                    error_type=ErrorType.RATE_LIMIT.value,
-                    code="rate_limit_exceeded",
-                    status_code=429,
-                )
-
-            result = await ImageGenerationService().generate(
-                token_mgr=token_mgr,
-                token=token,
-                model_info=model_info,
-                prompt=prompt,
-                n=n,
-                response_format=response_format,
-                size=size,
-                aspect_ratio=aspect_ratio,
-                stream=bool(is_stream),
+        if not token:
+            raise AppException(
+                message="No available tokens. Please try again later.",
+                error_type=ErrorType.RATE_LIMIT.value,
+                code="rate_limit_exceeded",
+                status_code=429,
             )
 
-            if result.stream:
-                async def stream_wrapper():
-                    ok = False
-                    err = None
-                    status = 200
-                    try:
-                        async for chunk in result.data:
-                            yield chunk
-                        ok = True
-                    except Exception as exc:
-                        err = str(exc)
-                        status = extract_status(exc)
-                        logger.warning(f"Image generation stream failed: {exc}")
-                        for chunk in generic_stream_error_chunks(exc):
-                            yield chunk
-                    finally:
-                        await record(ok, status, error=err, stream=True)
+        result = await ImageGenerationService().generate(
+            token_mgr=token_mgr,
+            token=token,
+            model_info=model_info,
+            prompt=prompt,
+            n=n,
+            response_format=response_format,
+            size=size,
+            aspect_ratio=aspect_ratio,
+            stream=bool(is_stream),
+            chat_format=True,
+        )
 
-                return StreamingResponse(
-                    stream_wrapper(),
-                    media_type="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-                )
-
-            data = [{response_field: img} for img in result.data]
-            usage = result.usage_override or {
-                "total_tokens": 0,
-                "input_tokens": 0,
-                "output_tokens": 0,
-                "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
-            }
-            await record(True, 200, stream=False)
-            return JSONResponse(
-                content={
-                    "created": int(time.time()),
-                    "data": data,
-                    "usage": usage,
-                }
+        if result.stream:
+            return StreamingResponse(
+                result.data,
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
             )
-        except Exception as exc:
-            await record(False, extract_status(exc), error=str(exc), stream=bool(request.stream))
-            raise
 
-    try:
-        if model_info and model_info.is_video:
-            # 提取视频配置 (默认值在 Pydantic 模型中处理)
-            v_conf = request.video_config or VideoConfig()
+        content = result.data[0] if result.data else ""
+        usage = result.usage_override
+        return JSONResponse(
+            content=make_chat_response(request.model, content, usage=usage)
+        )
 
-            result = await VideoService.completions(
-                model=request.model,
-                messages=[msg.model_dump() for msg in request.messages],
-                stream=request.stream,
-                reasoning_effort=request.reasoning_effort,
-                aspect_ratio=v_conf.aspect_ratio,
-                video_length=v_conf.video_length,
-                resolution=v_conf.resolution_name,
-                preset=v_conf.preset,
-            )
-        else:
-            conv_id = raw_request.headers.get("X-Conversation-ID") or request.conversation_id
-            result = await ChatService.completions(
-                model=request.model,
-                messages=[msg.model_dump() for msg in request.messages],
-                stream=request.stream,
-                reasoning_effort=request.reasoning_effort,
-                temperature=request.temperature,
-                top_p=request.top_p,
-                conversation_id=conv_id,
-            )
-    except Exception as exc:
-        await record(False, extract_status(exc), error=str(exc), stream=bool(request.stream))
-        raise
+    if model_info and model_info.is_video:
+        # 提取视频配置 (默认值在 Pydantic 模型中处理)
+        v_conf = request.video_config or VideoConfig()
+
+        result = await VideoService.completions(
+            model=request.model,
+            messages=[msg.model_dump() for msg in request.messages],
+            stream=request.stream,
+            reasoning_effort=request.reasoning_effort,
+            aspect_ratio=v_conf.aspect_ratio,
+            video_length=v_conf.video_length,
+            resolution=v_conf.resolution_name,
+            preset=v_conf.preset,
+        )
+    else:
+        result = await ChatService.completions(
+            model=request.model,
+            messages=[msg.model_dump() for msg in request.messages],
+            stream=request.stream,
+            reasoning_effort=request.reasoning_effort,
+            temperature=request.temperature,
+            top_p=request.top_p,
+        )
 
     if isinstance(result, dict):
-        await record(True, 200, stream=False)
         return JSONResponse(content=result)
-
-    async def stream_wrapper():
-        ok = False
-        err = None
-        status = 200
-        try:
-            async for chunk in result:
-                yield chunk
-            ok = True
-        except Exception as exc:
-            err = str(exc)
-            status = extract_status(exc)
-            logger.warning(f"Chat stream failed: {exc}")
-            for chunk in chat_stream_error_chunks(exc):
-                yield chunk
-        finally:
-            await record(ok, status, error=err, stream=True)
-
-    return StreamingResponse(
-        stream_wrapper(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-    )
+    else:
+        return StreamingResponse(
+            result,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
 
 
 __all__ = ["router"]

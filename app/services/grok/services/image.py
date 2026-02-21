@@ -17,12 +17,8 @@ from app.core.logger import logger
 from app.core.storage import DATA_DIR
 from app.core.exceptions import AppException, ErrorType, UpstreamException
 from app.services.grok.utils.process import BaseProcessor
-from app.services.grok.utils.retry import (
-    pick_token,
-    rate_limited,
-    extract_status_code,
-    rate_limit_has_quota,
-)
+from app.services.grok.utils.retry import pick_token, rate_limited
+from app.services.grok.utils.response import make_response_id, make_chat_chunk, wrap_image_content
 from app.services.grok.utils.stream import wrap_stream_with_usage
 from app.services.token import EffortType
 from app.services.reverse.ws_imagine import ImagineWebSocketReverse
@@ -54,6 +50,7 @@ class ImageGenerationService:
         aspect_ratio: str,
         stream: bool,
         enable_nsfw: Optional[bool] = None,
+        chat_format: bool = False,
     ) -> ImageGenerationResult:
         max_token_retries = int(get_config("retry.max_retry"))
         tried_tokens: set[str] = set()
@@ -90,6 +87,7 @@ class ImageGenerationService:
                             size=size,
                             aspect_ratio=aspect_ratio,
                             enable_nsfw=enable_nsfw,
+                            chat_format=chat_format,
                         )
                         async for chunk in result.data:
                             yielded = True
@@ -100,28 +98,9 @@ class ImageGenerationService:
                         if rate_limited(e):
                             if yielded:
                                 raise
-                            has_quota = rate_limit_has_quota(e)
-                            await token_mgr.apply_cooldown(
-                                current_token,
-                                429,
-                                has_quota=has_quota,
-                                reason="rate_limit",
-                            )
+                            await token_mgr.mark_rate_limited(current_token)
                             logger.warning(
                                 f"Token {current_token[:10]}... rate limited (429), "
-                                f"trying next token (attempt {attempt + 1}/{max_token_retries})"
-                            )
-                            continue
-
-                        status = extract_status_code(e)
-                        if status and status not in (401, 403):
-                            await token_mgr.apply_cooldown(
-                                current_token,
-                                int(status),
-                                reason=f"status_{status}",
-                            )
-                            logger.warning(
-                                f"Token {current_token[:10]}... status={status}, "
                                 f"trying next token (attempt {attempt + 1}/{max_token_retries})"
                             )
                             continue
@@ -168,28 +147,9 @@ class ImageGenerationService:
             except UpstreamException as e:
                 last_error = e
                 if rate_limited(e):
-                    has_quota = rate_limit_has_quota(e)
-                    await token_mgr.apply_cooldown(
-                        current_token,
-                        429,
-                        has_quota=has_quota,
-                        reason="rate_limit",
-                    )
+                    await token_mgr.mark_rate_limited(current_token)
                     logger.warning(
                         f"Token {current_token[:10]}... rate limited (429), "
-                        f"trying next token (attempt {attempt + 1}/{max_token_retries})"
-                    )
-                    continue
-
-                status = extract_status_code(e)
-                if status and status not in (401, 403):
-                    await token_mgr.apply_cooldown(
-                        current_token,
-                        int(status),
-                        reason=f"status_{status}",
-                    )
-                    logger.warning(
-                        f"Token {current_token[:10]}... status={status}, "
                         f"trying next token (attempt {attempt + 1}/{max_token_retries})"
                     )
                     continue
@@ -216,6 +176,7 @@ class ImageGenerationService:
         size: str,
         aspect_ratio: str,
         enable_nsfw: Optional[bool] = None,
+        chat_format: bool = False,
     ) -> ImageGenerationResult:
         if enable_nsfw is None:
             enable_nsfw = bool(get_config("image.nsfw"))
@@ -232,6 +193,7 @@ class ImageGenerationService:
             n=n,
             response_format=response_format,
             size=size,
+            chat_format=chat_format,
         )
         stream = wrap_stream_with_usage(
             processor.process(upstream),
@@ -448,14 +410,18 @@ class ImageWSStreamProcessor(ImageWSBaseProcessor):
         n: int = 1,
         response_format: str = "b64_json",
         size: str = "1024x1024",
+        chat_format: bool = False,
     ):
         super().__init__(model, token, response_format)
         self.n = n
         self.size = size
+        self.chat_format = chat_format
         self._target_id: Optional[str] = None
         self._index_map: Dict[str, int] = {}
         self._partial_map: Dict[str, int] = {}
         self._initial_sent: set[str] = set()
+        self._id_generated: bool = False
+        self._response_id: str = ""
 
     def _assign_index(self, image_id: str) -> Optional[int]:
         if image_id in self._index_map:
@@ -537,21 +503,42 @@ class ImageWSStreamProcessor(ImageWSBaseProcessor):
                     )
                 else:
                     partial_out = self._strip_base64(item.get("blob", ""))
+
+                if self.chat_format and partial_out:
+                    partial_out = wrap_image_content(partial_out, self.response_format)
+
                 if not partial_out:
                     continue
-                yield self._sse(
-                    "image_generation.partial_image",
-                    {
-                        "type": "image_generation.partial_image",
-                        self.response_field: partial_out,
-                        "created_at": int(time.time()),
-                        "size": self.size,
-                        "index": index,
-                        "partial_image_index": partial_index,
-                        "image_id": image_id,
-                        "stage": stage,
-                    },
-                )
+
+                if self.chat_format:
+                    # OpenAI ChatCompletion chunk format for partial
+                    if not self._id_generated:
+                        self._response_id = make_response_id()
+                        self._id_generated = True
+                    yield self._sse(
+                        "chat.completion.chunk",
+                        make_chat_chunk(
+                            self._response_id,
+                            self.model,
+                            partial_out,
+                            index=index,
+                        ),
+                    )
+                else:
+                    # Original image_generation format
+                    yield self._sse(
+                        "image_generation.partial_image",
+                        {
+                            "type": "image_generation.partial_image",
+                            self.response_field: partial_out,
+                            "created_at": int(time.time()),
+                            "size": self.size,
+                            "index": index,
+                            "partial_image_index": partial_index,
+                            "image_id": image_id,
+                            "stage": stage,
+                        },
+                    )
 
         if self.n == 1:
             if self._target_id and self._target_id in images:
@@ -585,8 +572,13 @@ class ImageWSStreamProcessor(ImageWSBaseProcessor):
                     item.get("is_final", False),
                     ext=item.get("ext"),
                 )
+                if self.chat_format and output:
+                    output = wrap_image_content(output, self.response_format)
             else:
                 output = await self._to_output(image_id, item)
+                if self.chat_format and output:
+                    output = wrap_image_content(output, self.response_format)
+
             if not output:
                 continue
 
@@ -594,24 +586,43 @@ class ImageWSStreamProcessor(ImageWSBaseProcessor):
                 index = 0
             else:
                 index = self._index_map.get(image_id, 0)
-            yield self._sse(
-                "image_generation.completed",
-                {
-                    "type": "image_generation.completed",
-                    self.response_field: output,
-                    "created_at": int(time.time()),
-                    "size": self.size,
-                    "index": index,
-                    "image_id": image_id,
-                    "stage": "final",
-                    "usage": {
-                        "total_tokens": 0,
-                        "input_tokens": 0,
-                        "output_tokens": 0,
-                        "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
+
+            if not self._id_generated:
+                self._response_id = make_response_id()
+                self._id_generated = True
+
+            if self.chat_format:
+                # OpenAI ChatCompletion chunk format
+                yield self._sse(
+                    "chat.completion.chunk",
+                    make_chat_chunk(
+                        self._response_id,
+                        self.model,
+                        output,
+                        index=index,
+                        is_final=True,
+                    ),
+                )
+            else:
+                # Original image_generation format
+                yield self._sse(
+                    "image_generation.completed",
+                    {
+                        "type": "image_generation.completed",
+                        self.response_field: output,
+                        "created_at": int(time.time()),
+                        "size": self.size,
+                        "index": index,
+                        "image_id": image_id,
+                        "stage": "final",
+                        "usage": {
+                            "total_tokens": 0,
+                            "input_tokens": 0,
+                            "output_tokens": 0,
+                            "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
+                        },
                     },
-                },
-            )
+                )
 
 
 class ImageWSCollectProcessor(ImageWSBaseProcessor):
@@ -655,9 +666,3 @@ class ImageWSCollectProcessor(ImageWSBaseProcessor):
 
 
 __all__ = ["ImageGenerationService"]
-
-
-
-
-
-
