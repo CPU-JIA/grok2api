@@ -23,6 +23,7 @@ async def run_batch(
     task: Optional["BatchTask"] = None,
     on_item: Optional[Callable[[str, Dict[str, Any]], Awaitable[None]]] = None,
     should_cancel: Optional[Callable[[], bool]] = None,
+    parallel: bool = True,
 ) -> Dict[str, Dict[str, Any]]:
     """
     分批并发执行，单项失败不影响整体
@@ -31,6 +32,10 @@ async def run_batch(
         items: 待处理项列表
         worker: 异步处理函数
         batch_size: 每批大小
+        task: 批量任务对象
+        on_item: 单项完成回调
+        should_cancel: 取消检查函数
+        parallel: 是否在批次内并行执行（默认 True）
 
     Returns:
         {item: {"ok": bool, "data": ..., "error": ...}}
@@ -75,7 +80,17 @@ async def run_batch(
         if (should_cancel and should_cancel()) or (task and task.cancelled):
             break
         chunk = items[i : i + batch_size]
-        pairs = await asyncio.gather(*(_one(x) for x in chunk))
+
+        if parallel:
+            # 并行执行批次内的所有项
+            pairs = await asyncio.gather(*(_one(x) for x in chunk))
+        else:
+            # 串行执行批次内的项
+            pairs = []
+            for x in chunk:
+                pair = await _one(x)
+                pairs.append(pair)
+
         results.update(dict(pairs))
 
     return results

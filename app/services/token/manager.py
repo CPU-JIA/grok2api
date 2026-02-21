@@ -20,7 +20,6 @@ from app.core.exceptions import UpstreamException
 from app.services.token.pool import TokenPool
 from app.services.grok.batch_services.usage import UsageService
 
-
 DEFAULT_REFRESH_BATCH_SIZE = 10
 DEFAULT_REFRESH_CONCURRENCY = 5
 DEFAULT_SUPER_REFRESH_INTERVAL_HOURS = 2
@@ -160,9 +159,7 @@ class TokenManager:
         self._has_usage_changes = True
         self._usage_change_seq += 1
 
-    def _track_token_change(
-        self, token: TokenInfo, pool_name: str, change_kind: str
-    ):
+    def _track_token_change(self, token: TokenInfo, pool_name: str, change_kind: str):
         token_key = token.token
         if token_key.startswith("sso="):
             token_key = token_key[4:]
@@ -245,7 +242,7 @@ class TokenManager:
             except Exception as e:
                 logger.error(f"Failed to save tokens: {e}")
                 self._dirty = True
-                if 'dirty_tokens' in locals():
+                if "dirty_tokens" in locals():
                     for token_key, meta in dirty_tokens.items():
                         existing = self._dirty_tokens.get(token_key)
                         if existing and existing[1] == "state":
@@ -290,7 +287,9 @@ class TokenManager:
             if self._dirty:
                 self._schedule_save()
 
-    def _find_token_info(self, raw_token: str) -> tuple[Optional[TokenInfo], Optional[TokenPool]]:
+    def _find_token_info(
+        self, raw_token: str
+    ) -> tuple[Optional[TokenInfo], Optional[TokenPool]]:
         for pool in self.pools.values():
             token = pool.get(raw_token)
             if token:
@@ -330,7 +329,10 @@ class TokenManager:
             seq_ready = True
             if token_info.cooldown_until and now_ms < token_info.cooldown_until:
                 time_ready = False
-            if token_info.cooldown_until_seq and self._cooldown_seq < token_info.cooldown_until_seq:
+            if (
+                token_info.cooldown_until_seq
+                and self._cooldown_seq < token_info.cooldown_until_seq
+            ):
                 seq_ready = False
 
             if not (time_ready and seq_ready):
@@ -347,7 +349,9 @@ class TokenManager:
             pool.update_index(token_info, old_quota, old_status)
             self._cooldown_tokens.discard(token_str)
 
-    def get_token(self, pool_name: str = "ssoBasic", exclude: set = None) -> Optional[str]:
+    def get_token(
+        self, pool_name: str = "ssoBasic", exclude: set = None
+    ) -> Optional[str]:
         """
         获取可用 Token
 
@@ -494,15 +498,17 @@ class TokenManager:
                 old_status = token.status
                 consumed = token.consume(effort)
                 pool.update_index(token, old_quota, old_status)
+                # 不再记录 token 前缀，避免敏感信息泄露
                 logger.debug(
-                    f"Token {raw_token[:10]}...: consumed {consumed} quota, use_count={token.use_count}"
+                    f"Token consumption recorded: effort={effort.value}, consumed={consumed}, use_count={token.use_count}"
                 )
                 change_kind = "state" if token.status != old_status else "usage"
                 self._track_token_change(token, pool.name, change_kind)
                 self._schedule_save()
                 return True
 
-        logger.warning(f"Token {raw_token[:10]}...: not found for consumption")
+        # 不再记录 token 前缀
+        logger.warning("Token not found for consumption")
         return False
 
     async def sync_usage(
@@ -538,7 +544,7 @@ class TokenManager:
                 break
 
         if not target_token:
-            logger.warning(f"Token {raw_token[:10]}...: not found for sync")
+            logger.warning("Token not found for sync")
             return False
 
         # 尝试 API 同步
@@ -564,12 +570,13 @@ class TokenManager:
 
                 consumed = max(0, old_quota - new_quota)
                 logger.info(
-                    f"Token {raw_token[:10]}...: synced quota "
-                    f"{old_quota} -> {new_quota} (consumed: {consumed}, use_count: {target_token.use_count})"
+                    f"Token synced: quota {old_quota} -> {new_quota} (consumed: {consumed}, use_count: {target_token.use_count})"
                 )
 
                 if target_pool_name:
-                    change_kind = "state" if target_token.status != old_status else "usage"
+                    change_kind = (
+                        "state" if target_token.status != old_status else "usage"
+                    )
                     self._track_token_change(
                         target_token, target_pool_name, change_kind
                     )
@@ -586,17 +593,15 @@ class TokenManager:
                 if status == 401:
                     await self.record_fail(token_str, status, "rate_limits_auth_failed")
             logger.warning(
-                f"Token {raw_token[:10]}...: API sync failed, fallback to local ({e})"
+                logger.warning(f"Token API sync failed, fallback to local ({e})")
             )
 
         # 降级：本地预估扣费
         if consume_on_fail:
-            logger.debug(f"Token {raw_token[:10]}...: using local consumption")
+            logger.debug("Token using local consumption")
             return await self.consume(token_str, fallback_effort)
         else:
-            logger.debug(
-                f"Token {raw_token[:10]}...: sync failed, skipping local consumption"
-            )
+            logger.debug("Token sync failed, skipping local consumption")
             return False
 
     async def record_fail(
@@ -631,20 +636,20 @@ class TokenManager:
 
                     token.record_fail(status_code, reason, threshold=threshold)
                     logger.warning(
-                        f"Token {raw_token[:10]}...: recorded {status_code} failure "
-                        f"({token.fail_count}/{threshold}) - {reason}"
+                        f"Token failure recorded: status={status_code}, "
+                        f"fail_count={token.fail_count}/{threshold}, reason={reason}"
                     )
                     self._track_token_change(token, pool.name, "state")
                     self._schedule_save()
                 else:
                     logger.info(
-                        f"Token {raw_token[:10]}...: non-auth error ({status_code}) - {reason} (not counted)"
+                        f"Non-auth error recorded: status={status_code}, reason={reason} (not counted as failure)"
                     )
                 pool.update_index(token, old_quota, old_status)
                 self._schedule_save()
                 return True
 
-        logger.warning(f"Token {raw_token[:10]}...: not found for failure record")
+        logger.warning("Token not found for failure record")
         return False
 
     async def mark_rate_limited(self, token_str: str) -> bool:
@@ -679,7 +684,7 @@ class TokenManager:
         raw_token = token_str.removeprefix("sso=")
         token_info, pool = self._find_token_info(raw_token)
         if not token_info or not pool:
-            logger.warning(f"Token {raw_token[:10]}...: not found for cooldown")
+            logger.warning("Token not found for cooldown")
             return False
 
         old_quota = token_info.quota
@@ -710,8 +715,8 @@ class TokenManager:
             pool.update_index(token_info, old_quota, old_status)
             self._track_token_change(token_info, pool.name, "state")
             logger.warning(
-                f"Token {raw_token[:10]}...: rate limited ({'quota' if has_quota else 'empty'}), "
-                f"cooldown {cooldown_sec}s"
+                f"Token rate limited: type={'with_quota' if has_quota else 'no_quota'}, "
+                f"cooldown={cooldown_sec}s"
             )
             self._schedule_save()
             return True
@@ -739,7 +744,7 @@ class TokenManager:
         pool.update_index(token_info, old_quota, old_status)
         self._track_token_change(token_info, pool.name, "state")
         logger.info(
-            f"Token {raw_token[:10]}...: error cooldown for {cooldown_requests} requests"
+            f"Token error cooldown applied: requests={cooldown_requests}, reason={reason or 'error'}"
         )
         self._schedule_save()
         return True
@@ -806,7 +811,7 @@ class TokenManager:
                     info.tags.append(tag)
                     self._track_token_change(info, pool.name, "state")
                     self._schedule_save()
-                    logger.debug(f"Token {raw_token[:10]}...: added tag '{tag}'")
+                    logger.debug(f"Token tag added: tag='{tag}'")
                 return True
         return False
 
@@ -829,7 +834,7 @@ class TokenManager:
                     info.tags.remove(tag)
                     self._track_token_change(info, pool.name, "state")
                     self._schedule_save()
-                    logger.debug(f"Token {raw_token[:10]}...: removed tag '{tag}'")
+                    logger.debug(f"Token tag removed: tag='{tag}'")
                 return True
         return False
 
@@ -891,10 +896,10 @@ class TokenManager:
                 pool.update_index(token, old_quota, old_status)
                 self._track_token_change(token, pool.name, "state")
                 await self._save(force=True)
-                logger.info(f"Token {raw_token[:10]}...: reset completed")
+                logger.info("Token reset completed")
                 return True
 
-        logger.warning(f"Token {raw_token[:10]}...: not found for reset")
+        logger.warning("Token not found for reset")
         return False
 
     def get_stats(self) -> Dict[str, dict]:

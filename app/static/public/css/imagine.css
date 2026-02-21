@@ -1,14 +1,30 @@
 .imagine-top-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 24px;
-  margin-bottom: 24px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1.85fr) minmax(320px, 1fr);
+  gap: 18px;
+  margin-bottom: 16px;
+  align-items: start;
 }
 
-@media (max-width: 1024px) {
+.imagine-top-grid > * {
+  align-self: start;
+}
+
+.imagine-settings-stack {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.status-card {
+  min-width: 0;
+  height: fit-content;
+  align-self: start;
+}
+
+@media (max-width: 1200px) {
   .imagine-top-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -108,7 +124,7 @@
 
 .floating-actions {
   position: fixed;
-  bottom: 32px;
+  bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 20;
@@ -120,12 +136,16 @@
   align-items: center;
   gap: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-  cursor: move;
+  cursor: default;
   user-select: none;
   white-space: nowrap;
 }
 
-.floating-actions:active {
+.floating-actions.is-draggable {
+  cursor: move;
+}
+
+.floating-actions.is-draggable:active {
   cursor: grabbing;
 }
 
@@ -142,16 +162,15 @@
 }
 
 .imagine-textarea {
-  height: auto;
-  min-height: 0;
+  min-height: 96px;
+  max-height: 160px;
   resize: vertical;
   line-height: 1.5;
-  flex: 1;
 }
 
 .settings-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -167,41 +186,50 @@
   align-content: start;
 }
 
+.settings-right-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .settings-toggle-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.settings-advanced {
+.settings-advanced-card {
+  padding: 14px 16px;
   grid-column: 1 / -1;
-}
-
-.advanced-panel {
-  border: 1px solid var(--accents-1);
-  background: #f7f7f8;
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-
-.advanced-panel summary {
-  list-style: none;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accents-6);
-  cursor: pointer;
-  user-select: none;
-}
-
-.advanced-panel summary::-webkit-details-marker {
-  display: none;
 }
 
 .advanced-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.advanced-item {
+  min-height: 64px;
+  width: 100%;
+}
+
+.advanced-toggle .toggle-row {
+  min-height: 64px;
+  height: 100%;
+  width: 100%;
+}
+
+.advanced-select {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f7f8;
+  border: 1px solid var(--accents-1);
 }
 
 .settings-prompt {
@@ -213,7 +241,16 @@
 .settings-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.settings-field .geist-input,
+.settings-field select,
+.settings-field button {
+  width: 100%;
+  min-width: 0;
 }
 
 .settings-field .field-label {
@@ -225,8 +262,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  height: 100%;
-  padding: 0 10px;
+  min-height: 62px;
+  padding: 10px 12px;
   border-radius: 10px;
   background: #f7f7f8;
   border: 1px solid var(--accents-1);
@@ -240,20 +277,16 @@
 }
 
 .toggle-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--accents-6);
   line-height: 1.2;
 }
 
 .toggle-desc {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--accents-4);
   line-height: 1.2;
-}
-
-.toggle-row-fill {
-  height: 100%;
 }
 
 .settings-folder {
@@ -272,7 +305,7 @@
   width: 100%;
   justify-content: flex-start;
   font-size: 12px;
-  height: 30px;
+  height: 34px;
   padding: 0 12px;
   gap: 8px;
   align-items: center;
@@ -285,20 +318,44 @@
   white-space: nowrap;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1200px) {
   .settings-grid {
     grid-template-columns: 1fr;
   }
 
-  .settings-toggle-row {
-    grid-template-columns: 1fr;
+  .advanced-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
 
+@media (max-width: 920px) {
+  .settings-right-grid,
+  .settings-toggle-row,
   .advanced-grid {
     grid-template-columns: 1fr;
   }
 }
 
+.meta-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.mode-item {
+  align-items: center;
+}
+
+.meta-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .meta-stats-row {
+    grid-template-columns: 1fr;
+  }
+}
 
 .waterfall-header {
   display: flex;
@@ -375,9 +432,9 @@
 
 .field-label {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--accents-4);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .status-text {
@@ -400,8 +457,7 @@
 
 .meta-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .mode-item {
@@ -443,13 +499,13 @@
 }
 
 .meta-item {
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 10px;
   background: #f7f7f8;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   min-height: 42px;
 }
 
@@ -575,6 +631,12 @@
 @media (max-width: 480px) {
   .waterfall {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .floating-actions {
+    bottom: 70px;
   }
 }
 
@@ -823,3 +885,105 @@
     right: 15px;
   }
 }
+
+/* Route-scoped overrides to avoid cross-page style leakage in SPA mode. */
+.public-view[data-route='imagine'] #statusText,
+.admin-view[data-route='imagine'] #statusText {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  line-height: 1.2;
+}
+
+.public-view[data-route='imagine'] .settings-grid,
+.admin-view[data-route='imagine'] .settings-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr) !important;
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+.public-view[data-route='imagine'] .settings-right,
+.admin-view[data-route='imagine'] .settings-right {
+  display: grid !important;
+  gap: 10px !important;
+  align-content: start !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.public-view[data-route='imagine'] .settings-right-grid,
+.admin-view[data-route='imagine'] .settings-right-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+.public-view[data-route='imagine'] .settings-right-grid > .settings-field,
+.admin-view[data-route='imagine'] .settings-right-grid > .settings-field,
+.public-view[data-route='imagine'] .settings-field,
+.admin-view[data-route='imagine'] .settings-field {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.public-view[data-route='imagine'] .settings-field .geist-input,
+.admin-view[data-route='imagine'] .settings-field .geist-input,
+.public-view[data-route='imagine'] .settings-field select,
+.admin-view[data-route='imagine'] .settings-field select,
+.public-view[data-route='imagine'] .settings-field button,
+.admin-view[data-route='imagine'] .settings-field button {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.public-view[data-route='imagine'] .settings-folder,
+.admin-view[data-route='imagine'] .settings-folder,
+.public-view[data-route='imagine'] .folder-select-btn,
+.admin-view[data-route='imagine'] .folder-select-btn {
+  width: 100% !important;
+}
+
+.public-view[data-route='imagine'] .settings-prompt,
+.admin-view[data-route='imagine'] .settings-prompt {
+  gap: 4px !important;
+}
+
+.public-view[data-route='imagine'] .settings-prompt .field-label,
+.admin-view[data-route='imagine'] .settings-prompt .field-label {
+  margin-bottom: 4px !important;
+}
+
+.public-view[data-route='imagine'] #floatingActions {
+  bottom: 84px !important;
+}
+
+.admin-view[data-route='imagine'] #floatingActions {
+  bottom: 92px !important;
+}
+
+@media (max-width: 1200px) {
+  .public-view[data-route='imagine'] .settings-grid,
+  .admin-view[data-route='imagine'] .settings-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 920px) {
+  .public-view[data-route='imagine'] .settings-right-grid,
+  .admin-view[data-route='imagine'] .settings-right-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .public-view[data-route='imagine'] #floatingActions {
+    bottom: 70px !important;
+  }
+
+  .admin-view[data-route='imagine'] #floatingActions {
+    bottom: 76px !important;
+  }
+}
+

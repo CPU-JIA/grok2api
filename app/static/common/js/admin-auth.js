@@ -1,241 +1,108 @@
-const APP_KEY_STORAGE = 'grok2api_app_key';
-const PUBLIC_KEY_STORAGE = 'grok2api_public_key';
-const APP_KEY_ENC_PREFIX = 'enc:v1:';
-const APP_KEY_XOR_PREFIX = 'enc:xor:';
-const APP_KEY_SECRET = 'grok2api-admin-key';
-let cachedAdminKey = null;
-let cachedPublicKey = null;
+let cachedAdminAuth = null;
+let cachedPublicAuth = null;
 
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
-
-function toBase64(bytes) {
-  let binary = '';
-  bytes.forEach(b => { binary += String.fromCharCode(b); });
-  return btoa(binary);
-}
-
-function fromBase64(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function xorCipher(bytes, keyBytes) {
-  const out = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) {
-    out[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
-  }
-  return out;
-}
-
-function xorEncrypt(plain) {
-  const data = textEncoder.encode(plain);
-  const key = textEncoder.encode(APP_KEY_SECRET);
-  const cipher = xorCipher(data, key);
-  return `${APP_KEY_XOR_PREFIX}${toBase64(cipher)}`;
-}
-
-function xorDecrypt(stored) {
-  if (!stored.startsWith(APP_KEY_XOR_PREFIX)) return stored;
-  const payload = stored.slice(APP_KEY_XOR_PREFIX.length);
-  const data = fromBase64(payload);
-  const key = textEncoder.encode(APP_KEY_SECRET);
-  const plain = xorCipher(data, key);
-  return textDecoder.decode(plain);
-}
-
-async function deriveKey(salt) {
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    textEncoder.encode(APP_KEY_SECRET),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt,
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
-async function encryptAppKey(plain) {
-  if (!plain) return '';
-  if (!crypto?.subtle) return xorEncrypt(plain);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(salt);
-  const cipher = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    textEncoder.encode(plain)
-  );
-  return `${APP_KEY_ENC_PREFIX}${toBase64(salt)}:${toBase64(iv)}:${toBase64(new Uint8Array(cipher))}`;
-}
-
-async function decryptAppKey(stored) {
-  if (!stored) return '';
-  if (stored.startsWith(APP_KEY_XOR_PREFIX)) return xorDecrypt(stored);
-  if (!stored.startsWith(APP_KEY_ENC_PREFIX)) return stored;
-  if (!crypto?.subtle) return '';
-  const parts = stored.split(':');
-  if (parts.length !== 5) return '';
-  const salt = fromBase64(parts[2]);
-  const iv = fromBase64(parts[3]);
-  const cipher = fromBase64(parts[4]);
-  const key = await deriveKey(salt);
-  const plain = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    cipher
-  );
-  return textDecoder.decode(plain);
-}
-
-async function getStoredAppKey() {
-  const stored = localStorage.getItem(APP_KEY_STORAGE) || '';
-  if (!stored) return '';
-  try {
-    return await decryptAppKey(stored);
-  } catch (e) {
-    clearStoredAppKey();
-    return '';
-  }
-}
-
-async function getStoredPublicKey() {
-  const stored = localStorage.getItem(PUBLIC_KEY_STORAGE) || '';
-  if (!stored) return '';
-  try {
-    return await decryptAppKey(stored);
-  } catch (e) {
-    clearStoredPublicKey();
-    return '';
-  }
-}
-
-async function storeAppKey(appKey) {
-  if (!appKey) {
-    clearStoredAppKey();
-    return;
-  }
-  const encrypted = await encryptAppKey(appKey);
-  localStorage.setItem(APP_KEY_STORAGE, encrypted || '');
-}
-
-async function storePublicKey(publicKey) {
-  if (!publicKey) {
-    clearStoredPublicKey();
-    return;
-  }
-  const encrypted = await encryptAppKey(publicKey);
-  localStorage.setItem(PUBLIC_KEY_STORAGE, encrypted || '');
-}
-
-function clearStoredAppKey() {
-  localStorage.removeItem(APP_KEY_STORAGE);
-  cachedAdminKey = null;
-}
-
-function clearStoredPublicKey() {
-  localStorage.removeItem(PUBLIC_KEY_STORAGE);
-  cachedPublicKey = null;
+function buildAuthHeaders(apiKey) {
+  return apiKey ? { Authorization: apiKey } : {};
 }
 
 async function verifyKey(url, key) {
-  const headers = key ? { 'Authorization': `Bearer ${key}` } : {};
-  const res = await fetch(url, { method: 'GET', headers });
+  const headers = buildAuthHeaders(key ? `Bearer ${key}` : '');
+  const res = await fetch(url, {
+    method: 'GET',
+    headers,
+    credentials: 'same-origin',
+    cache: 'no-store'
+  });
   return res.ok;
 }
 
-async function ensureAdminKey() {
-  if (cachedAdminKey) return cachedAdminKey;
-  const appKey = await getStoredAppKey();
-  if (!appKey) {
-    window.location.href = '/admin/login';
-    return null;
-  }
-  try {
-    const ok = await verifyKey('/v1/admin/verify', appKey);
-    if (!ok) throw new Error('Unauthorized');
-    cachedAdminKey = `Bearer ${appKey}`;
-    return cachedAdminKey;
-  } catch (e) {
-    clearStoredAppKey();
-    window.location.href = '/admin/login';
-    return null;
-  }
+function resetCachedAuth() {
+  cachedAdminAuth = null;
+  cachedPublicAuth = null;
 }
+
+// Compatibility stubs: keys are no longer persisted in localStorage.
+async function getStoredAppKey() { return ''; }
+async function getStoredPublicKey() { return ''; }
+async function storeAppKey() { return; }
+async function storePublicKey() { return; }
+function clearStoredAppKey() { cachedAdminAuth = null; }
+function clearStoredPublicKey() { cachedPublicAuth = null; }
 
 function isAdminContext() {
   return Boolean(window.__adminSpa__) || window.location.pathname.startsWith('/admin');
 }
 
-async function ensurePublicKey() {
-  if (cachedPublicKey !== null) return cachedPublicKey;
-
-  const tryAdminFallback = async () => {
-    if (!isAdminContext()) return null;
-    const adminKey = await getStoredAppKey();
-    if (!adminKey) return null;
-    try {
-      const ok = await verifyKey('/v1/public/verify', adminKey);
-      if (!ok) return null;
-      cachedPublicKey = `Bearer ${adminKey}`;
-      return cachedPublicKey;
-    } catch (e) {
-      return null;
-    }
-  };
-
-  const key = await getStoredPublicKey();
-  if (!key) {
-    try {
-      const ok = await verifyKey('/v1/public/verify', '');
-      if (ok) {
-        cachedPublicKey = '';
-        return cachedPublicKey;
-      }
-    } catch (e) {
-      // ignore
-    }
-    return await tryAdminFallback();
-  }
+async function ensureAdminKey() {
+  if (cachedAdminAuth !== null) return cachedAdminAuth;
 
   try {
-    const ok = await verifyKey('/v1/public/verify', key);
-    if (!ok) throw new Error('Unauthorized');
-    cachedPublicKey = `Bearer ${key}`;
-    return cachedPublicKey;
+    const ok = await verifyKey('/v1/admin/verify', '');
+    if (ok) {
+      cachedAdminAuth = '';
+      return cachedAdminAuth;
+    }
   } catch (e) {
-    clearStoredPublicKey();
-    return await tryAdminFallback();
+    // ignore and redirect below
   }
+
+  cachedAdminAuth = null;
+  window.location.href = '/admin/login';
+  return null;
 }
 
-function buildAuthHeaders(apiKey) {
-  return apiKey ? { 'Authorization': apiKey } : {};
+async function ensurePublicKey() {
+  if (cachedPublicAuth !== null) return cachedPublicAuth;
+
+  try {
+    const ok = await verifyKey('/v1/public/verify', '');
+    if (ok) {
+      try {
+        await fetch('/v1/public/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ key: '' })
+        });
+      } catch (e) {
+        // ignore
+      }
+      cachedPublicAuth = '';
+      return cachedPublicAuth;
+    }
+  } catch (e) {
+    // ignore and redirect below
+  }
+
+  cachedPublicAuth = null;
+  const admin = isAdminContext();
+  window.location.href = admin ? '/admin/login' : '/login';
+  return null;
 }
 
-function logout() {
-  clearStoredAppKey();
-  clearStoredPublicKey();
+async function logout() {
+  try {
+    await fetch('/v1/admin/session', {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    });
+  } catch (e) {
+    // ignore
+  }
+  resetCachedAuth();
   window.location.href = '/admin/login';
 }
 
-function publicLogout() {
-  clearStoredPublicKey();
+async function publicLogout() {
+  try {
+    await fetch('/v1/public/session', {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    });
+  } catch (e) {
+    // ignore
+  }
+  cachedPublicAuth = null;
   window.location.href = '/login';
 }
 
@@ -244,7 +111,8 @@ async function fetchStorageType() {
   if (apiKey === null) return null;
   try {
     const res = await fetch('/v1/admin/storage', {
-      headers: buildAuthHeaders(apiKey)
+      headers: buildAuthHeaders(apiKey),
+      credentials: 'same-origin'
     });
     if (!res.ok) return null;
     const data = await res.json();

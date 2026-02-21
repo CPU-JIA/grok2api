@@ -1,0 +1,394 @@
+/* Unified Card System - 统一卡片样式系统 */
+
+/* ========== 基础卡片样式 ========== */
+
+.card,
+.stat-card {
+  /* 布局 */
+  display: block;
+  width: 100%;
+
+  /* 背景和边框 */
+  background-color: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+
+  /* 阴影 */
+  box-shadow: var(--card-shadow);
+
+  /* 内边距 */
+  padding: var(--card-padding);
+
+  /* 过渡动画 */
+  transition: var(--transition-all);
+}
+
+/* ========== 卡片尺寸变体 ========== */
+
+.card-sm {
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.card-lg {
+  padding: var(--card-padding-lg);
+  border-radius: 16px;
+}
+
+/* ========== 卡片交互状态 ========== */
+
+.card-hover:hover,
+.card.is-hoverable:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  border-color: var(--color-border-dark);
+}
+
+.card-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-clickable:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  border-color: var(--color-border-dark);
+}
+
+.card-clickable:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-md);
+}
+
+/* ========== 卡片变体 ========== */
+
+/* 扁平卡片（无阴影） */
+.card-flat {
+  box-shadow: none;
+}
+
+/* 边框卡片（无背景） */
+.card-bordered {
+  background-color: transparent;
+  box-shadow: none;
+  border: 1px solid var(--color-border);
+}
+
+/* 幽灵卡片（无边框无阴影） */
+.card-ghost {
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* ========== 卡片头部 ========== */
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.card-header-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.card-header-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* ========== 卡片主体 ========== */
+
+.card-body {
+  flex: 1;
+}
+
+.card-body:first-child {
+  margin-top: 0;
+}
+
+.card-body:last-child {
+  margin-bottom: 0;
+}
+
+/* ========== 卡片底部 ========== */
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.card-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* ========== 卡片网格布局 ========== */
+
+.card-grid {
+  display: grid;
+  gap: var(--spacing-lg);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.card-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.card-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.card-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1024px) {
+  .card-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .card-grid,
+  .card-grid-2,
+  .card-grid-3,
+  .card-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========== 统计卡片 ========== */
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.stat-card-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+.stat-card-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+}
+
+.stat-card-change {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.stat-card-change.is-positive {
+  color: var(--color-success);
+}
+
+.stat-card-change.is-negative {
+  color: var(--color-error);
+}
+
+.stat-card-change.is-neutral {
+  color: var(--color-text-tertiary);
+}
+
+/* ========== 信息卡片 ========== */
+
+.info-card {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+  border-radius: var(--card-radius);
+}
+
+.info-card-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--color-info);
+}
+
+.info-card-content {
+  flex: 1;
+}
+
+.info-card-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-info);
+  margin-bottom: var(--spacing-xs);
+}
+
+.info-card-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ========== 警告卡片 ========== */
+
+.warning-card {
+  background-color: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+}
+
+.warning-card .info-card-icon {
+  color: var(--color-warning);
+}
+
+.warning-card .info-card-title {
+  color: var(--color-warning);
+}
+
+/* ========== 错误卡片 ========== */
+
+.error-card {
+  background-color: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+}
+
+.error-card .info-card-icon {
+  color: var(--color-error);
+}
+
+.error-card .info-card-title {
+  color: var(--color-error);
+}
+
+/* ========== 成功卡片 ========== */
+
+.success-card {
+  background-color: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+}
+
+.success-card .info-card-icon {
+  color: var(--color-success);
+}
+
+.success-card .info-card-title {
+  color: var(--color-success);
+}
+
+/* ========== 卡片列表 ========== */
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.card-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  transition: var(--transition-all);
+}
+
+.card-list-item:hover {
+  border-color: var(--color-border-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-list-item-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-soft);
+  border-radius: var(--radius-md);
+}
+
+.card-list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-list-item-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.card-list-item-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-list-item-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* ========== 深色模式适配 ========== */
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .stat-card {
+  background-color: var(--card-bg);
+  border-color: var(--color-border);
+  box-shadow: var(--card-shadow);
+}
+
+[data-theme="dark"] .card-hover:hover,
+[data-theme="dark"] .card.is-hoverable:hover,
+[data-theme="dark"] .card-clickable:hover {
+  border-color: var(--color-border-dark);
+}
+
+[data-theme="dark"] .card-header,
+[data-theme="dark"] .card-footer {
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .card-list-item {
+  background-color: var(--card-bg);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .card-list-item:hover {
+  border-color: var(--color-border-dark);
+}
+
+[data-theme="dark"] .card-list-item-icon {
+  background-color: var(--color-bg-strong);
+}

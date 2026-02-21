@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.core.auth import verify_public_key, get_public_api_key, is_public_enabled, get_app_key
+from app.core.auth import has_public_access, verify_public_key
 from app.core.config import get_config
 from app.core.logger import logger
 from app.services.request_logger import request_logger
@@ -94,18 +94,8 @@ def _normalize_response_format(value: Optional[str]) -> str:
     return fmt
 
 
-def _public_query_key_allowed(key: Optional[str]) -> bool:
-    value = (key or "").strip()
-    app_key = get_app_key()
-    if value and app_key and value == app_key:
-        return True
-
-    public_key = get_public_api_key()
-    public_enabled = is_public_enabled()
-    if not public_key:
-        return public_enabled
-
-    return value == public_key
+def _public_query_key_allowed(key: Optional[str], cookies: Optional[Dict[str, str]] = None) -> bool:
+    return has_public_access((key or "").strip(), cookies)
 
 
 def _get_client_ip(req: Request) -> str:
@@ -200,7 +190,7 @@ async def public_imagine_ws(websocket: WebSocket):
     ok = True
     if session_id is None:
         key = websocket.query_params.get("public_key")
-        ok = _public_query_key_allowed(key)
+        ok = _public_query_key_allowed(key, websocket.cookies)
 
     if not ok:
         await websocket.close(code=1008)
@@ -467,7 +457,7 @@ async def public_imagine_sse(
             raise HTTPException(status_code=404, detail="Task not found")
     else:
         key = request.query_params.get("public_key")
-        if not _public_query_key_allowed(key):
+        if not _public_query_key_allowed(key, request.cookies):
             raise HTTPException(status_code=401, detail="Invalid authentication token")
 
     if session:

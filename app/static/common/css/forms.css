@@ -1,0 +1,295 @@
+/* Unified Form Controls System - 统一表单控件样式系统 */
+
+/* ========== 基础输入框样式 ========== */
+
+.input,
+.geist-input,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea,
+select {
+  /* 布局 */
+  display: block;
+  width: 100%;
+
+  /* 尺寸 */
+  height: var(--input-height);
+  padding: var(--input-padding);
+
+  /* 字体 */
+  font-family: var(--font-family-sans);
+  font-size: var(--input-font-size);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+
+  /* 背景和边框 */
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--input-radius);
+
+  /* 交互 */
+  outline: none;
+  transition: var(--transition-colors);
+}
+
+/* ========== 输入框尺寸变体 ========== */
+
+.input-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.input-lg {
+  height: var(--input-height-lg);
+  padding: 0 16px;
+  font-size: 15px;
+}
+
+/* ========== 输入框状态 ========== */
+
+/* Hover 状态 */
+.input:hover,
+.geist-input:hover,
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: var(--input-border-color-hover);
+}
+
+/* Focus 状态 */
+.input:focus,
+.geist-input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--input-border-color-focus);
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.08);
+}
+
+/* Disabled 状态 */
+.input:disabled,
+.geist-input:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background-color: var(--input-bg-disabled);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Error 状态 */
+.input-error,
+.input.is-error,
+input.is-error {
+  border-color: var(--color-error);
+}
+
+.input-error:focus,
+.input.is-error:focus,
+input.is-error:focus {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px var(--color-error-bg);
+}
+
+/* Success 状态 */
+.input-success,
+.input.is-success,
+input.is-success {
+  border-color: var(--color-success);
+}
+
+.input-success:focus,
+.input.is-success:focus,
+input.is-success:focus {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px var(--color-success-bg);
+}
+
+/* ========== Textarea 特殊样式 ========== */
+
+textarea {
+  height: auto;
+  min-height: 80px;
+  padding: 10px 14px;
+  resize: vertical;
+}
+
+textarea.no-resize {
+  resize: none;
+}
+
+/* ========== Select 特殊样式 ========== */
+
+select {
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* ========== 表单组 ========== */
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* ========== 表单标签 ========== */
+
+.form-label,
+label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.form-label.required::after,
+label.required::after {
+  content: " *";
+  color: var(--color-error);
+}
+
+/* ========== 表单提示文本 ========== */
+
+.form-hint {
+  display: block;
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.form-error {
+  display: block;
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+}
+
+.form-success {
+  display: block;
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+}
+
+/* ========== 输入框组合 ========== */
+
+.input-group {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.input-group > .input,
+.input-group > input {
+  flex: 1;
+  border-radius: 0;
+}
+
+.input-group > .input:first-child,
+.input-group > input:first-child {
+  border-top-left-radius: var(--input-radius);
+  border-bottom-left-radius: var(--input-radius);
+}
+
+.input-group > .input:last-child,
+.input-group > input:last-child {
+  border-top-right-radius: var(--input-radius);
+  border-bottom-right-radius: var(--input-radius);
+}
+
+.input-group-addon {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background-color: var(--color-bg-soft);
+  border: 1px solid var(--input-border-color);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.input-group-addon:first-child {
+  border-right: none;
+  border-top-left-radius: var(--input-radius);
+  border-bottom-left-radius: var(--input-radius);
+}
+
+.input-group-addon:last-child {
+  border-left: none;
+  border-top-right-radius: var(--input-radius);
+  border-bottom-right-radius: var(--input-radius);
+}
+
+/* ========== Checkbox 和 Radio ========== */
+
+.checkbox,
+.radio,
+input[type="checkbox"],
+input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.checkbox-label,
+.radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input,
+.radio-label input {
+  margin: 0;
+}
+
+/* ========== 深色模式适配 ========== */
+
+[data-theme="dark"] .input,
+[data-theme="dark"] .geist-input,
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: var(--input-bg);
+  border-color: var(--input-border-color);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .input:focus,
+[data-theme="dark"] .geist-input:focus,
+[data-theme="dark"] input:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] select:focus {
+  border-color: var(--input-border-color-focus);
+  box-shadow: 0 0 0 2px rgba(237, 237, 237, 0.08);
+}
+
+[data-theme="dark"] select {
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] .input-group-addon {
+  background-color: var(--color-bg-strong);
+  border-color: var(--input-border-color);
+  color: var(--color-text-tertiary);
+}

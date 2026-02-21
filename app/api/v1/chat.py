@@ -7,6 +7,7 @@ import base64
 import binascii
 import time
 
+import orjson
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -569,6 +570,73 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         except Exception:
             return 500
 
+    def chat_stream_error_chunks(exc: Exception) -> list[str]:
+        status = extract_status(exc)
+        message = str(exc) or "Upstream stream failed"
+        if len(message) > 400:
+            message = message[:400] + "..."
+        created = int(time.time())
+        chunk_id = f"chatcmpl-error-{int(time.time() * 1000)}"
+        model_name = request.model or "grok"
+        error_text = f"\n[Error {status}] {message}"
+        start_chunk = {
+            "id": chunk_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model_name,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"content": error_text},
+                    "logprobs": None,
+                    "finish_reason": None,
+                }
+            ],
+            "error": {
+                "message": message,
+                "code": "upstream_error",
+                "type": ErrorType.SERVER.value,
+                "status": status,
+            },
+        }
+        final_chunk = {
+            "id": chunk_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": model_name,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {},
+                    "logprobs": None,
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+        return [
+            f"data: {orjson.dumps(start_chunk).decode()}\n\n",
+            f"data: {orjson.dumps(final_chunk).decode()}\n\n",
+            "data: [DONE]\n\n",
+        ]
+
+    def generic_stream_error_chunks(exc: Exception) -> list[str]:
+        status = extract_status(exc)
+        message = str(exc) or "Upstream stream failed"
+        if len(message) > 400:
+            message = message[:400] + "..."
+        payload = {
+            "type": "error",
+            "error": {
+                "message": message,
+                "code": "upstream_error",
+                "status": status,
+            },
+        }
+        return [
+            f"event: error\ndata: {orjson.dumps(payload).decode()}\n\n",
+            "data: [DONE]\n\n",
+        ]
+
     if model_info and model_info.is_image_edit:
         try:
             prompt, image_urls = _extract_prompt_images(request.messages)
@@ -629,7 +697,9 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
                     except Exception as exc:
                         err = str(exc)
                         status = extract_status(exc)
-                        raise
+                        logger.warning(f"Image edit stream failed: {exc}")
+                        for chunk in generic_stream_error_chunks(exc):
+                            yield chunk
                     finally:
                         await record(ok, status, error=err, stream=True)
 
@@ -720,7 +790,9 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
                     except Exception as exc:
                         err = str(exc)
                         status = extract_status(exc)
-                        raise
+                        logger.warning(f"Image generation stream failed: {exc}")
+                        for chunk in generic_stream_error_chunks(exc):
+                            yield chunk
                     finally:
                         await record(ok, status, error=err, stream=True)
 
@@ -794,7 +866,9 @@ async def chat_completions(request: ChatCompletionRequest, raw_request: Request)
         except Exception as exc:
             err = str(exc)
             status = extract_status(exc)
-            raise
+            logger.warning(f"Chat stream failed: {exc}")
+            for chunk in chat_stream_error_chunks(exc):
+                yield chunk
         finally:
             await record(ok, status, error=err, stream=True)
 

@@ -1,0 +1,121 @@
+/* Mobile Card Layout for Tables */
+@media (max-width: 768px) {
+  /* Hide table on mobile */
+  .mobile-hide-table {
+    display: none !important;
+  }
+
+  /* Show card list on mobile */
+  .mobile-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mobile-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mobile-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fg);
+  }
+
+  .mobile-card-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+  }
+
+  .mobile-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mobile-card-label {
+    font-size: 12px;
+    color: var(--accents-4);
+    flex-shrink: 0;
+  }
+
+  .mobile-card-value {
+    font-size: 13px;
+    color: var(--fg);
+    text-align: right;
+    word-break: break-word;
+  }
+
+  .mobile-card-actions {
+    display: flex;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .mobile-card-actions button {
+    flex: 1;
+    min-height: 36px;
+    font-size: 13px;
+  }
+
+  /* Status badges */
+  .mobile-card-badge.status-active {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #047857;
+  }
+
+  .mobile-card-badge.status-inactive {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+  }
+
+  .mobile-card-badge.status-cooldown {
+    background: #fef3c7;
+    border-color: #fde68a;
+    color: #d97706;
+  }
+
+  /* Monospace values */
+  .mobile-card-value.font-mono {
+    font-family: "Geist Mono", monospace;
+    font-size: 12px;
+  }
+}
+
+/* Desktop: hide mobile card list */
+@media (min-width: 769px) {
+  .mobile-card-list {
+    display: none !important;
+  }
+}

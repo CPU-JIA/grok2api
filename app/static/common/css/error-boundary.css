@@ -1,0 +1,126 @@
+/* Error Boundary Styles */
+
+.error-boundary-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 9999;
+}
+
+.error-boundary-container {
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.error-boundary-icon {
+  font-size: 64px;
+  line-height: 1;
+  animation: errorBounce 0.5s ease-out;
+}
+
+@keyframes errorBounce {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.error-boundary-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0;
+}
+
+.error-boundary-message {
+  font-size: 16px;
+  color: var(--accents-4);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.error-boundary-details {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.error-boundary-details summary {
+  font-size: 14px;
+  color: var(--accents-5);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+}
+
+.error-boundary-details summary:hover {
+  background: var(--surface-strong);
+  border-color: var(--accents-4);
+}
+
+.error-boundary-code {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: "Geist Mono", monospace;
+  font-size: 12px;
+  color: var(--accents-5);
+  text-align: left;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.error-boundary-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.error-boundary-actions button {
+  min-width: 120px;
+}
+
+@media (max-width: 600px) {
+  .error-boundary-icon {
+    font-size: 48px;
+  }
+
+  .error-boundary-title {
+    font-size: 24px;
+  }
+
+  .error-boundary-message {
+    font-size: 14px;
+  }
+
+  .error-boundary-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .error-boundary-actions button {
+    width: 100%;
+  }
+}

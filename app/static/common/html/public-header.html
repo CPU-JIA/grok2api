@@ -3,37 +3,104 @@
     <div class="public-brand">
       <a href="/imagine" class="brand-link" data-nav="/imagine">
         <span class="brand-logo-wrap" aria-hidden="true">
-          <img src="/static/common/img/favicon/favicon.ico" class="brand-logo-img" alt="Grok2API">
+          <img
+            src="/static/common/img/logo-transparent.png"
+            class="brand-logo-img"
+            alt="Grok2API"
+          />
         </span>
-        <span class="brand-text">Grok2API</span>
+        <div class="brand-info">
+          <span class="brand-text">Grok2API</span>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 11px;
+            "
+          >
+            <a
+              href="https://github.com/chenyme/grok2api"
+              target="_blank"
+              rel="noopener"
+              class="brand-author"
+              title="Original author"
+              style="opacity: 0.7"
+              >@chenyme</a
+            >
+            <span style="opacity: 0.5">/</span>
+            <a
+              href="https://github.com/CPU-JIA/grok2api"
+              target="_blank"
+              rel="noopener"
+              class="brand-author"
+              title="Maintainer"
+              >@CPU-JIA</a
+            >
+          </div>
+        </div>
       </a>
-      <a href="https://github.com/chenyme" target="_blank" rel="noopener" class="text-xs text-[var(--accents-4)] hover:text-black">@chenyme</a>
     </div>
 
     <div class="public-tabs" role="tablist" aria-label="Public 页面导航">
+      <a href="/chat" class="nav-link" data-nav="/chat">
+        <span class="nav-link-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M6 4h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-3H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+            ></path>
+            <path d="M8 9h8"></path>
+            <path d="M8 13h5"></path>
+          </svg>
+        </span>
+        <span class="nav-link-label">Chat</span>
+      </a>
       <a href="/imagine" class="nav-link" data-nav="/imagine">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="m21 16-5.2-5.2a1.6 1.6 0 0 0-2.3 0L8 16"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <circle cx="8.5" cy="9" r="1.5"></circle>
+            <path d="m21 16-5.2-5.2a1.6 1.6 0 0 0-2.3 0L8 16"></path>
+          </svg>
         </span>
-        <span class="nav-link-label">Imagine 瀑布流</span>
+        <span class="nav-link-label">Imagine</span>
       </a>
       <a href="/video" class="nav-link" data-nav="/video">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"></rect><path d="m11 10 4 2-4 2v-4"></path><path d="M17 9l4-2v10l-4-2"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="14" height="14" rx="2"></rect>
+            <path d="m11 10 4 2-4 2v-4"></path>
+            <path d="M17 9l4-2v10l-4-2"></path>
+          </svg>
         </span>
-        <span class="nav-link-label">Video 视频生成</span>
+        <span class="nav-link-label">Video</span>
       </a>
       <a href="/voice" class="nav-link" data-nav="/voice">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M9 18a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"></path><path d="M15 18a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2"></path><path d="M7 12h2"></path><path d="M15 12h2"></path><path d="M9 18h6"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <path d="M9 18a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"></path>
+            <path d="M15 18a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2"></path>
+            <path d="M7 12h2"></path>
+            <path d="M15 12h2"></path>
+            <path d="M9 18h6"></path>
+          </svg>
         </span>
-        <span class="nav-link-label">LiveKit 陪聊</span>
+        <span class="nav-link-label">Voice</span>
       </a>
     </div>
 
     <div class="nav-actions">
-      <a href="/admin/login" class="nav-action-btn">管理后台</a>
-      <button id="public-logout-btn" onclick="publicLogout()" type="button" class="nav-action-btn">退出</button>
+      <a href="/admin/login" class="nav-action-btn nav-action-outline"
+        >管理后台</a
+      >
+      <button
+        id="public-logout-btn"
+        onclick="publicLogout()"
+        type="button"
+        class="nav-action-btn"
+      >
+        退出
+      </button>
     </div>
   </div>
 </nav>

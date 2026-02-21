@@ -3,69 +3,155 @@
     <div class="admin-brand">
       <a href="/admin/token" class="brand-link" data-nav="/admin/token">
         <span class="brand-logo-wrap" aria-hidden="true">
-          <img src="/static/common/img/favicon/favicon.ico" class="brand-logo-img" alt="Grok2API">
+          <img
+            src="/static/common/img/logo-transparent.png"
+            class="brand-logo-img"
+            alt="Grok2API"
+          />
         </span>
-        <span class="brand-text">Grok2API</span>
+        <div class="brand-info">
+          <span class="brand-text">Grok2API</span>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              font-size: 11px;
+            "
+          >
+            <a
+              href="https://github.com/chenyme/grok2api"
+              target="_blank"
+              rel="noopener"
+              class="brand-author"
+              title="Original author"
+              style="opacity: 0.7"
+              >@chenyme</a
+            >
+            <span style="opacity: 0.5">/</span>
+            <a
+              href="https://github.com/CPU-JIA/grok2api"
+              target="_blank"
+              rel="noopener"
+              class="brand-author"
+              title="Maintainer"
+              >@CPU-JIA</a
+            >
+          </div>
+        </div>
       </a>
-      <a href="https://github.com/chenyme" target="_blank" rel="noopener" class="text-xs text-[var(--accents-4)] hover:text-black">@chenyme</a>
     </div>
 
     <div class="admin-tabs" role="tablist" aria-label="后台页面导航">
       <a href="/admin/token" class="nav-link" data-nav="/admin/token">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 3 3 7.5 12 12l9-4.5L12 3z"></path><path d="m3 12 9 4.5 9-4.5"></path><path d="m3 16.5 9 4.5 9-4.5"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <path d="M12 3 3 7.5 12 12l9-4.5L12 3z"></path>
+            <path d="m3 12 9 4.5 9-4.5"></path>
+            <path d="m3 16.5 9 4.5 9-4.5"></path>
+          </svg>
         </span>
-        <span class="nav-link-label">Token 管理</span>
+        <span class="nav-link-label">Token</span>
       </a>
       <a href="/admin/imagine" class="nav-link" data-nav="/admin/imagine">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9" r="1.5"></circle><path d="m21 16-5.2-5.2a1.6 1.6 0 0 0-2.3 0L8 16"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <circle cx="8.5" cy="9" r="1.5"></circle>
+            <path d="m21 16-5.2-5.2a1.6 1.6 0 0 0-2.3 0L8 16"></path>
+          </svg>
         </span>
         <span class="nav-link-label">Imagine</span>
       </a>
       <a href="/admin/voice" class="nav-link" data-nav="/admin/voice">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 10a7 7 0 0 0 14 0"></path><path d="M12 17v4"></path><path d="M8 21h8"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+            <path d="M5 10a7 7 0 0 0 14 0"></path>
+            <path d="M12 17v4"></path>
+            <path d="M8 21h8"></path>
+          </svg>
         </span>
         <span class="nav-link-label">Voice</span>
       </a>
       <a href="/admin/keys" class="nav-link" data-nav="/admin/keys">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><circle cx="8" cy="10" r="3"></circle><path d="M11 10h10"></path><path d="M17 10v3"></path><path d="M20 10v2"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <circle cx="8" cy="10" r="3"></circle>
+            <path d="M11 10h10"></path>
+            <path d="M17 10v3"></path>
+            <path d="M20 10v2"></path>
+          </svg>
         </span>
-        <span class="nav-link-label">Key 管理</span>
+        <span class="nav-link-label">Keys</span>
       </a>
       <a href="/admin/sessions" class="nav-link" data-nav="/admin/sessions">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M6 4h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-3H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M6 4h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-3H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"
+            ></path>
+          </svg>
         </span>
-        <span class="nav-link-label">会话管理</span>
+        <span class="nav-link-label">Sessions</span>
       </a>
       <a href="/admin/stats" class="nav-link" data-nav="/admin/stats">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M3 3v18h18"></path><path d="m7 14 4-4 3 3 5-6"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <path d="M3 3v18h18"></path>
+            <path d="m7 14 4-4 3 3 5-6"></path>
+          </svg>
         </span>
-        <span class="nav-link-label">统计监控</span>
+        <span class="nav-link-label">Stats</span>
       </a>
       <a href="/admin/cache" class="nav-link" data-nav="/admin/cache">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M3 6h18"></path><path d="M5 6l1 13h12l1-13"></path><path d="M9 11h6"></path></svg>
+          <svg viewBox="0 0 24 24">
+            <path d="M3 6h18"></path>
+            <path d="M5 6l1 13h12l1-13"></path>
+            <path d="M9 11h6"></path>
+          </svg>
         </span>
-        <span class="nav-link-label">缓存预览</span>
+        <span class="nav-link-label">Cache</span>
       </a>
       <a href="/admin/config" class="nav-link" data-nav="/admin/config">
         <span class="nav-link-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 6h6"></path><path d="M14 6h6"></path><circle cx="12" cy="6" r="2"></circle><path d="M4 12h10"></path><path d="M18 12h2"></path><circle cx="16" cy="12" r="2"></circle><path d="M4 18h2"></path><path d="M10 18h10"></path><circle cx="8" cy="18" r="2"></circle></svg>
+          <svg viewBox="0 0 24 24">
+            <path d="M4 6h6"></path>
+            <path d="M14 6h6"></path>
+            <circle cx="12" cy="6" r="2"></circle>
+            <path d="M4 12h10"></path>
+            <path d="M18 12h2"></path>
+            <circle cx="16" cy="12" r="2"></circle>
+            <path d="M4 18h2"></path>
+            <path d="M10 18h10"></path>
+            <circle cx="8" cy="18" r="2"></circle>
+          </svg>
         </span>
-        <span class="nav-link-label">配置管理</span>
+        <span class="nav-link-label">Config</span>
       </a>
     </div>
 
     <div class="admin-actions">
-      <a href="/imagine" class="nav-pill nav-pill-public">Public</a>
-      <button id="storage-mode-btn" type="button" class="nav-pill" title="存储模式">-</button>
-      <a href="https://github.com/chenyme/grok2api/issues" target="_blank" rel="noopener" class="nav-pill">反馈</a>
-      <button onclick="logout()" type="button" class="nav-pill">退出</button>
+      <a href="/imagine" class="nav-action-btn nav-action-public">Public</a>
+      <button
+        id="storage-mode-btn"
+        type="button"
+        class="nav-action-btn nav-action-outline"
+        title="存储模式"
+      >
+        -
+      </button>
+      <a
+        href="https://github.com/CPU-JIA/grok2api/issues"
+        target="_blank"
+        rel="noopener"
+        class="nav-action-btn nav-action-outline"
+        >反馈</a
+      >
+      <button onclick="logout()" type="button" class="nav-action-btn">
+        退出
+      </button>
     </div>
   </div>
 </nav>

@@ -7,6 +7,7 @@ from app.core.auth import is_public_enabled
 
 router = APIRouter()
 STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
+PUBLIC_APP = STATIC_DIR / "public/pages/app.html"
 
 
 @router.get("/", include_in_schema=False)
@@ -27,25 +28,25 @@ async def public_login():
 async def public_imagine():
     if not is_public_enabled():
         raise HTTPException(status_code=404, detail="Not Found")
-    return FileResponse(STATIC_DIR / "public/pages/imagine.html")
+    return FileResponse(PUBLIC_APP)
 
 
 @router.get("/voice", include_in_schema=False)
 async def public_voice():
     if not is_public_enabled():
         raise HTTPException(status_code=404, detail="Not Found")
-    return FileResponse(STATIC_DIR / "public/pages/voice.html")
+    return FileResponse(PUBLIC_APP)
 
 
 @router.get("/video", include_in_schema=False)
 async def public_video():
     if not is_public_enabled():
         raise HTTPException(status_code=404, detail="Not Found")
-    return FileResponse(STATIC_DIR / "public/pages/video.html")
+    return FileResponse(PUBLIC_APP)
 
 
 @router.get("/chat", include_in_schema=False)
 async def public_chat():
     if not is_public_enabled():
         raise HTTPException(status_code=404, detail="Not Found")
-    return FileResponse(STATIC_DIR / "public/pages/chat.html")
+    return FileResponse(PUBLIC_APP)

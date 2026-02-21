@@ -7,9 +7,10 @@
 
   function openBatchStream(taskId, apiKey, handlers = {}) {
     if (!taskId) return null;
-    // Query param expects raw key
+
     const rawKey = normalizeApiKey(apiKey);
-    const url = `/v1/admin/batch/${taskId}/stream?app_key=${encodeURIComponent(rawKey || '')}`;
+    const query = rawKey ? `?app_key=${encodeURIComponent(rawKey)}` : '';
+    const url = `/v1/admin/batch/${taskId}/stream${query}`;
     const es = new EventSource(url);
 
     es.onmessage = (e) => {
@@ -38,9 +39,11 @@
     if (!taskId) return;
     try {
       const rawKey = normalizeApiKey(apiKey);
+      const headers = rawKey ? { Authorization: `Bearer ${rawKey}` } : undefined;
       await fetch(`/v1/admin/batch/${taskId}/cancel`, {
         method: 'POST',
-        headers: rawKey ? { Authorization: `Bearer ${rawKey}` } : undefined
+        headers,
+        credentials: 'same-origin'
       });
     } catch {
       // ignore

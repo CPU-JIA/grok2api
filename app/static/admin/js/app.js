@@ -1,6 +1,6 @@
 (() => {
   window.__adminSpa__ = true;
-  const ASSET_VERSION = '1.5.1';
+  const ASSET_VERSION = '1.5.42';
 
   function withVersion(url) {
     if (!url || typeof url !== 'string') return url;
@@ -26,7 +26,7 @@
       key: 'imagine',
       title: 'Imagine',
       fragment: '/static/admin/fragments/imagine.html',
-      css: ['/static/public/css/imagine.css'],
+      css: ['/static/public/css/imagine.css', '/static/admin/css/imagine-admin.css'],
       js: [
         'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
         '/static/public/js/imagine.js'

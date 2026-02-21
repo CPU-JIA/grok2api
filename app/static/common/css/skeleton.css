@@ -1,0 +1,208 @@
+/* Skeleton Loading States */
+
+/* Skeleton base */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-soft) 25%,
+    var(--surface-strong) 50%,
+    var(--surface-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Skeleton variants */
+.skeleton-text {
+  height: 16px;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.skeleton-text-short {
+  height: 16px;
+  width: 60%;
+  margin: 8px 0;
+}
+
+.skeleton-title {
+  height: 24px;
+  width: 40%;
+  margin: 12px 0;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton-button {
+  height: 36px;
+  width: 100px;
+  border-radius: 8px;
+}
+
+.skeleton-card {
+  height: 120px;
+  width: 100%;
+  border-radius: 12px;
+}
+
+.skeleton-image {
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  border-radius: 8px;
+  position: relative;
+}
+
+/* Skeleton table */
+.skeleton-table {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.skeleton-table-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.skeleton-table-cell {
+  height: 20px;
+  flex: 1;
+  border-radius: 4px;
+}
+
+.skeleton-table-cell:first-child {
+  flex: 0 0 40px;
+}
+
+/* Skeleton grid (for imagine/cache pages) */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 16px;
+}
+
+.skeleton-grid-item {
+  aspect-ratio: 1;
+  border-radius: 12px;
+}
+
+/* Skeleton stats cards */
+.skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.skeleton-stat-card {
+  height: 100px;
+  border-radius: 12px;
+}
+
+/* Skeleton chart */
+.skeleton-chart {
+  height: 300px;
+  width: 100%;
+  border-radius: 12px;
+}
+
+/* Skeleton list */
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-list-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.skeleton-list-item-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-list-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-list-item-title {
+  height: 16px;
+  width: 70%;
+  border-radius: 4px;
+}
+
+.skeleton-list-item-subtitle {
+  height: 14px;
+  width: 50%;
+  border-radius: 4px;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-soft) 25%,
+    var(--surface-strong) 50%,
+    var(--surface-soft) 75%
+  );
+}
+
+/* Pulse animation variant */
+.skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .skeleton-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .skeleton-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .skeleton-chart {
+    height: 200px;
+  }
+}

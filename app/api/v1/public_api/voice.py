@@ -1,8 +1,13 @@
 import time
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
-from app.core.auth import verify_public_key
+from app.core.auth import (
+    clear_public_session_cookie,
+    has_public_access,
+    set_public_session_cookie,
+    verify_public_key,
+)
 from app.core.exceptions import AppException
 from app.services.grok.services.voice import VoiceService
 from app.services.token.manager import get_token_manager
@@ -17,6 +22,10 @@ class VoiceTokenResponse(BaseModel):
     url: str
     participant_name: str = ""
     room_name: str = ""
+
+
+class PublicSessionLoginRequest(BaseModel):
+    key: str = ""
 
 
 @router.get(
@@ -111,6 +120,25 @@ async def public_voice_token(
             status_code=500,
         )
 
+
+
+
+@router.post("/session")
+async def public_create_session(payload: PublicSessionLoginRequest, request: Request, response: Response):
+    if not has_public_access(payload.key, request.cookies):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+
+    set_public_session_cookie(response, request)
+    return {"status": "success"}
+
+
+@router.delete("/session")
+async def public_delete_session(response: Response):
+    clear_public_session_cookie(response)
+    return {"status": "success"}
 
 @router.get("/verify", dependencies=[Depends(verify_public_key)])
 async def public_verify_api():

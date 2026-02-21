@@ -1,40 +1,67 @@
-const publicKeyInput = document.getElementById('public-key-input');
-const loginSubmit = document.getElementById('public-login-submit');
+const publicKeyInput = document.getElementById("public-key-input");
+const loginSubmit = document.getElementById("public-login-submit");
 let loginPending = false;
 
 function setLoginBusy(busy) {
   loginPending = !!busy;
   if (loginSubmit) {
     loginSubmit.disabled = !!busy;
-    loginSubmit.textContent = busy ? '校验中...' : '进入';
+    loginSubmit.classList.toggle("is-loading", !!busy);
+    loginSubmit.textContent = busy ? "验证中..." : "进入";
   }
 }
 
+function togglePasswordVisibility() {
+  const input = publicKeyInput;
+  const btn = document.querySelector(".login-toggle-password");
+  if (!input || !btn) return;
+
+  const isPassword = input.type === "password";
+  input.type = isPassword ? "text" : "password";
+  btn.classList.toggle("active", isPassword);
+  btn.setAttribute("aria-label", isPassword ? "隐藏密码" : "显示密码");
+}
+
 async function requestPublicLogin(key) {
-  const headers = key ? { 'Authorization': `Bearer ${key}` } : {};
-  const res = await fetch('/v1/public/verify', {
-    method: 'GET',
-    headers,
-    cache: 'no-store'
+  const res = await fetch("/v1/public/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+    body: JSON.stringify({ key }),
   });
   return res.ok;
+}
+
+async function hasSession() {
+  const res = await fetch("/v1/public/verify", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!res.ok) return false;
+  try {
+    await requestPublicLogin("");
+  } catch (e) {
+    // ignore
+  }
+  return true;
 }
 
 async function login() {
   if (loginPending) return;
 
-  const input = (publicKeyInput ? publicKeyInput.value : '').trim();
+  const input = (publicKeyInput ? publicKeyInput.value : "").trim();
   setLoginBusy(true);
   try {
     const ok = await requestPublicLogin(input);
     if (ok) {
-      await storePublicKey(input);
-      window.location.href = '/imagine';
+      window.location.href = "/imagine";
       return;
     }
-    showToast('密钥无效', 'error');
+    showToast("密钥无效", "error");
   } catch (e) {
-    showToast('连接失败', 'error');
+    showToast("连接失败", "error");
   } finally {
     setLoginBusy(false);
   }
@@ -43,19 +70,9 @@ async function login() {
 (async () => {
   setLoginBusy(true);
   try {
-    const stored = await getStoredPublicKey();
-    if (stored) {
-      const ok = await requestPublicLogin(stored);
-      if (ok) {
-        window.location.href = '/imagine';
-        return;
-      }
-      clearStoredPublicKey();
-    }
-
-    const ok = await requestPublicLogin('');
+    const ok = await hasSession();
     if (ok) {
-      window.location.href = '/imagine';
+      window.location.href = "/imagine";
     }
   } catch (e) {
     // ignore

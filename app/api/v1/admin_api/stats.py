@@ -14,4 +14,10 @@ async def get_stats(
     return request_stats.get_stats(hours=hours, days=days)
 
 
+@router.post("/stats/reset", dependencies=[Depends(verify_app_key)])
+async def reset_stats():
+    await request_stats.reset()
+    return {"ok": True}
+
+
 __all__ = ["router"]

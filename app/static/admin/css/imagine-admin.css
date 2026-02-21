@@ -1,0 +1,11 @@
+/* Admin-specific Imagine overrides */
+
+#app-main .admin-view #floatingActions {
+  bottom: 92px;
+}
+
+@media (max-width: 768px) {
+  #app-main .admin-view #floatingActions {
+    bottom: 76px;
+  }
+}

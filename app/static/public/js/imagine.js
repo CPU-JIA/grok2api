@@ -1375,54 +1375,89 @@
     });
   }
 
-  // Make floating actions draggable
+  function resetFloatingActionsPosition() {
+    const el = document.getElementById('floatingActions');
+    if (!el) return;
+    const mobile = window.matchMedia('(max-width: 768px)').matches;
+    el.style.left = '50%';
+    el.style.top = 'auto';
+    // Keep the floating bar fixed with the same viewport offset as admin.
+    el.style.bottom = mobile ? '70px' : '84px';
+    el.style.transform = 'translateX(-50%)';
+  }
+
+  // Keep floating actions fixed on viewport.
   const floatingActions = document.getElementById('floatingActions');
-  if (floatingActions) {
+  resetFloatingActionsPosition();
+  window.addEventListener('resize', resetFloatingActionsPosition);
+  const allowFloatingDrag = true;
+  if (floatingActions && allowFloatingDrag) {
+    floatingActions.classList.add('is-draggable');
+
+    const DRAG_THRESHOLD = 4;
+    let isPointerDown = false;
     let isDragging = false;
-    let startX, startY, initialLeft, initialTop;
-    
+    let activePointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let initialLeft = 0;
+    let initialTop = 0;
+
     floatingActions.style.touchAction = 'none';
-    
+
     floatingActions.addEventListener('pointerdown', (e) => {
       if (e.target.tagName.toLowerCase() === 'button' || e.target.closest('button')) return;
-      
-      e.preventDefault();
-      isDragging = true;
-      floatingActions.setPointerCapture(e.pointerId);
+
+      isPointerDown = true;
+      isDragging = false;
+      activePointerId = e.pointerId;
       startX = e.clientX;
       startY = e.clientY;
-      
-      const rect = floatingActions.getBoundingClientRect();
-      
-      if (!floatingActions.style.left || floatingActions.style.left === '') {
-        floatingActions.style.left = rect.left + 'px';
-        floatingActions.style.top = rect.top + 'px';
-        floatingActions.style.transform = 'none';
-        floatingActions.style.bottom = 'auto';
-      }
-      
-      initialLeft = parseFloat(floatingActions.style.left);
-      initialTop = parseFloat(floatingActions.style.top);
-      
-      floatingActions.classList.add('shadow-xl');
+      floatingActions.setPointerCapture(e.pointerId);
     });
-    
+
     document.addEventListener('pointermove', (e) => {
-      if (!isDragging) return;
-      
+      if (!isPointerDown || e.pointerId !== activePointerId) return;
+
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      
+
+      if (!isDragging) {
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+          return;
+        }
+
+        const rect = floatingActions.getBoundingClientRect();
+        floatingActions.style.left = `${rect.left}px`;
+        floatingActions.style.top = `${rect.top}px`;
+        floatingActions.style.transform = 'none';
+        floatingActions.style.bottom = 'auto';
+
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        isDragging = true;
+        floatingActions.classList.add('shadow-xl');
+      }
+
       floatingActions.style.left = `${initialLeft + dx}px`;
       floatingActions.style.top = `${initialTop + dy}px`;
     });
-    
+
     document.addEventListener('pointerup', (e) => {
+      if (!isPointerDown || e.pointerId !== activePointerId) return;
+
+      isPointerDown = false;
+      activePointerId = null;
+
       if (isDragging) {
-        isDragging = false;
-        floatingActions.releasePointerCapture(e.pointerId);
         floatingActions.classList.remove('shadow-xl');
       }
+
+      if (floatingActions.hasPointerCapture(e.pointerId)) {
+        floatingActions.releasePointerCapture(e.pointerId);
+      }
+
+      isDragging = false;
     });
   }
 })();

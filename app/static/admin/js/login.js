@@ -1,20 +1,43 @@
-const apiKeyInput = document.getElementById('api-key-input');
-const loginSubmit = document.getElementById('login-submit');
+const apiKeyInput = document.getElementById("api-key-input");
+const loginSubmit = document.getElementById("login-submit");
 let loginPending = false;
 
 function setLoginBusy(busy) {
   loginPending = !!busy;
   if (loginSubmit) {
     loginSubmit.disabled = !!busy;
-    loginSubmit.textContent = busy ? '验证中...' : '继续';
+    loginSubmit.classList.toggle("is-loading", !!busy);
+    loginSubmit.textContent = busy ? "验证中..." : "登录";
   }
 }
 
+function togglePasswordVisibility() {
+  const input = apiKeyInput;
+  const btn = document.querySelector(".login-toggle-password");
+  if (!input || !btn) return;
+
+  const isPassword = input.type === "password";
+  input.type = isPassword ? "text" : "password";
+  btn.classList.toggle("active", isPassword);
+  btn.setAttribute("aria-label", isPassword ? "隐藏密码" : "显示密码");
+}
+
 async function requestLogin(key) {
-  const res = await fetch('/v1/admin/verify', {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${key}` },
-    cache: 'no-store'
+  const res = await fetch("/v1/admin/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+    body: JSON.stringify({ key }),
+  });
+  return res.ok;
+}
+
+async function hasSession() {
+  const res = await fetch("/v1/admin/verify", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
   });
   return res.ok;
 }
@@ -22,9 +45,9 @@ async function requestLogin(key) {
 async function login() {
   if (loginPending) return;
 
-  const input = (apiKeyInput ? apiKeyInput.value : '').trim();
+  const input = (apiKeyInput ? apiKeyInput.value : "").trim();
   if (!input) {
-    showToast('请输入后台密码', 'warning');
+    showToast("请输入后台密码", "warning");
     apiKeyInput?.focus();
     return;
   }
@@ -33,30 +56,24 @@ async function login() {
   try {
     const ok = await requestLogin(input);
     if (ok) {
-      await storeAppKey(input);
-      window.location.href = '/admin/token';
+      window.location.href = "/admin/token";
       return;
     }
-    showToast('密钥无效', 'error');
+    showToast("密码错误", "error");
   } catch (e) {
-    showToast('连接失败', 'error');
+    showToast("连接失败", "error");
   } finally {
     setLoginBusy(false);
   }
 }
 
 (async () => {
-  const existingKey = await getStoredAppKey();
-  if (!existingKey) return;
-
   setLoginBusy(true);
   try {
-    const ok = await requestLogin(existingKey);
+    const ok = await hasSession();
     if (ok) {
-      window.location.href = '/admin/token';
-      return;
+      window.location.href = "/admin/token";
     }
-    clearStoredAppKey();
   } catch (e) {
     // ignore network check failure
   } finally {

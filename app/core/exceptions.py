@@ -10,7 +10,6 @@ from fastapi.exceptions import RequestValidationError
 
 from app.core.logger import logger
 
-
 # ============= 错误类型 =============
 
 
@@ -32,9 +31,9 @@ class ErrorType(str, Enum):
 def error_response(
     message: str,
     error_type: str = ErrorType.INVALID_REQUEST.value,
-    param: str = None,
-    code: str = None,
-) -> dict:
+    param: str | None = None,
+    code: str | None = None,
+) -> dict[str, dict[str, str | None]]:
     """构建 OpenAI 错误响应"""
     return {
         "error": {"message": message, "type": error_type, "param": param, "code": code}

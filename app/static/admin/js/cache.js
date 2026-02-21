@@ -60,7 +60,12 @@ const UI_MAP = {
   failureDialog: 'failure-dialog',
   failureList: 'failure-list',
   failureClose: 'failure-close',
-  failureRetry: 'failure-retry'
+  failureRetry: 'failure-retry',
+  cachePreviewDialog: 'cache-preview-dialog',
+  cachePreviewImage: 'cache-preview-image',
+  cachePreviewName: 'cache-preview-name',
+  cachePreviewMeta: 'cache-preview-meta',
+  cachePreviewClose: 'cache-preview-close'
 };
 
 function setText(el, text) {
@@ -97,6 +102,7 @@ async function init() {
   setupTopTabs();
   setupConfirmDialog();
   setupFailureDialog();
+  setupPreviewDialog();
   setupBatchControls();
   if (window.__setupBatchActionsDrag) {
     window.__setupBatchActionsDrag(document.getElementById('batch-actions'));
@@ -193,6 +199,52 @@ function setupFailureDialog() {
       dialog.close();
     }
   });
+}
+
+function setupPreviewDialog() {
+  const dialog = ui.cachePreviewDialog;
+  if (!dialog) return;
+
+  if (ui.cachePreviewClose) {
+    ui.cachePreviewClose.addEventListener('click', () => closeImagePreview());
+  }
+
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeImagePreview();
+  });
+
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) {
+      closeImagePreview();
+    }
+  });
+}
+
+function closeImagePreview() {
+  const dialog = ui.cachePreviewDialog;
+  if (!dialog) return;
+  if (dialog.open) dialog.close();
+  if (ui.cachePreviewImage) ui.cachePreviewImage.removeAttribute('src');
+}
+
+function openImagePreview(item, previewUrl) {
+  const url = previewUrl || resolveLocalPreviewUrl('image', item);
+  if (!url) return;
+
+  const dialog = ui.cachePreviewDialog;
+  if (!dialog || typeof dialog.showModal !== 'function') {
+    window.open(url, '_blank');
+    return;
+  }
+
+  if (ui.cachePreviewImage) ui.cachePreviewImage.src = url;
+  if (ui.cachePreviewName) ui.cachePreviewName.textContent = item?.name || '图片预览';
+  if (ui.cachePreviewMeta) ui.cachePreviewMeta.textContent = buildLocalItemMeta(item);
+
+  if (!dialog.open) {
+    dialog.showModal();
+  }
 }
 
 function setupBatchControls() {
@@ -751,6 +803,13 @@ function formatSize(bytes) {
   return `${bytes} B`;
 }
 
+function buildLocalItemMeta(item) {
+  if (!item) return '-';
+  const sizeText = formatSize(item.size_bytes);
+  const timeText = formatTime(item.mtime_ms) || '-';
+  return `${sizeText} · ${timeText}`;
+}
+
 function setCacheTabActive(type) {
   if (!ui.cacheTabButtons) return;
   ui.cacheTabButtons.forEach(btn => {
@@ -901,6 +960,7 @@ function renderLocalCacheGallery(type, items) {
       img.decoding = 'async';
       img.src = mediaUrl;
       img.alt = '';
+      img.addEventListener('click', () => openImagePreview(item, mediaUrl));
       card.appendChild(img);
     }
 
@@ -912,7 +972,7 @@ function renderLocalCacheGallery(type, items) {
 
     const metaEl = document.createElement('div');
     metaEl.className = 'cache-gallery-meta';
-    metaEl.textContent = `${formatSize(item.size_bytes)} · ${formatTime(item.mtime_ms) || '-'}`;
+    metaEl.textContent = buildLocalItemMeta(item);
     card.appendChild(metaEl);
 
     const actions = document.createElement('div');
@@ -920,7 +980,11 @@ function renderLocalCacheGallery(type, items) {
     const viewBtn = document.createElement('button');
     viewBtn.type = 'button';
     viewBtn.textContent = '查看';
-    viewBtn.addEventListener('click', () => viewLocalFile(type, item.name));
+    if (type === 'image') {
+      viewBtn.addEventListener('click', () => openImagePreview(item, mediaUrl));
+    } else {
+      viewBtn.addEventListener('click', () => viewLocalFile(type, item.name));
+    }
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
     delBtn.textContent = '删除';
@@ -975,6 +1039,10 @@ function renderLocalCacheList(type, items) {
       img.src = previewUrl;
       img.alt = '';
       img.className = 'cache-preview';
+      if (type === 'image') {
+        img.classList.add('cache-preview-clickable');
+        img.addEventListener('click', () => openImagePreview(item, previewUrl));
+      }
       nameWrap.appendChild(img);
     }
     const nameText = document.createElement('span');
@@ -1025,6 +1093,10 @@ function renderLocalCacheList(type, items) {
 function viewLocalFile(type, name) {
   const safeName = encodeURIComponent(name);
   const url = type === 'image' ? `/v1/files/image/${safeName}` : `/v1/files/video/${safeName}`;
+  if (type === 'image') {
+    openImagePreview({ name }, url);
+    return;
+  }
   window.open(url, '_blank');
 }
 

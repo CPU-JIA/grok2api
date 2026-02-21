@@ -1,0 +1,306 @@
+/* Design Tokens - 统一的设计系统 */
+
+:root {
+  /* ========== 颜色系统 ========== */
+
+  /* 主色调 */
+  --color-primary: #111827;
+  --color-primary-hover: #000000;
+  --color-primary-light: #374151;
+
+  /* 背景色 */
+  --color-bg: #fafafa;
+  --color-bg-elevated: #ffffff;
+  --color-bg-soft: #f5f5f5;
+  --color-bg-strong: #f1f3f5;
+
+  /* 文本颜色 */
+  --color-text-primary: #111827;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6b7280;
+  --color-text-quaternary: #9ca3af;
+  --color-text-disabled: #d1d5db;
+
+  /* 边框颜色 */
+  --color-border: #eaeaea;
+  --color-border-light: #f0f0f0;
+  --color-border-dark: #d1d5db;
+
+  /* 状态颜色 */
+  --color-success: #059669;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #a7f3d0;
+
+  --color-error: #dc2626;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecaca;
+
+  --color-warning: #d97706;
+  --color-warning-bg: #fef3c7;
+  --color-warning-border: #fde68a;
+
+  --color-info: #2563eb;
+  --color-info-bg: #dbeafe;
+  --color-info-border: #bfdbfe;
+
+  /* ========== 间距系统 ========== */
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-3xl: 48px;
+
+  /* ========== 圆角系统 ========== */
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 999px;
+
+  /* ========== 阴影系统 ========== */
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 12px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* ========== 按钮系统 ========== */
+
+  /* 按钮高度 */
+  --btn-height-sm: 32px;
+  --btn-height-md: 34px;
+  --btn-height-lg: 44px;
+
+  /* 按钮圆角 */
+  --btn-radius: 8px;
+  --btn-radius-pill: 999px;
+
+  /* 按钮 padding */
+  --btn-padding-sm: 0 12px;
+  --btn-padding-md: 0 16px;
+  --btn-padding-lg: 0 20px;
+
+  /* 按钮字体 */
+  --btn-font-size-sm: 13px;
+  --btn-font-size-md: 14px;
+  --btn-font-size-lg: 15px;
+
+  /* ========== 输入框系统 ========== */
+
+  --input-height: 34px;
+  --input-height-lg: 44px;
+  --input-radius: 8px;
+  --input-padding: 0 14px;
+  --input-font-size: 14px;
+  --input-border-color: #e5e5e5;
+  --input-border-color-hover: #d1d5db;
+  --input-border-color-focus: #111827;
+  --input-bg: #ffffff;
+  --input-bg-disabled: #f5f5f5;
+
+  /* ========== 卡片系统 ========== */
+
+  --card-radius: 12px;
+  --card-padding: 16px;
+  --card-padding-lg: 20px;
+  --card-bg: #ffffff;
+  --card-border: 1px solid var(--color-border);
+  --card-shadow: var(--shadow-md);
+
+  /* ========== Tab 系统 ========== */
+
+  --tab-height: 40px;
+  --tab-padding: 0 16px;
+  --tab-radius: 10px;
+  --tab-font-size: 14px;
+  --tab-bg-active: #f1f3f5;
+  --tab-color: #666666;
+  --tab-color-active: #111827;
+
+  /* ========== 表格系统 ========== */
+
+  --table-row-height: 44px;
+  --table-row-height-sm: 36px;
+  --table-header-height: 40px;
+  --table-border-color: #efefef;
+  --table-bg: #ffffff;
+  --table-bg-hover: #f9fafb;
+  --table-bg-selected: #f3f3f3;
+
+  /* ========== 字体系统 ========== */
+
+  --font-family-sans:
+    "Geist Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-mono: "Geist Mono", monospace;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 15px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 18px;
+  --font-size-3xl: 20px;
+  --font-size-4xl: 24px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+
+  /* ========== 过渡动画 ========== */
+
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  --transition-all: all var(--transition-base);
+  --transition-colors:
+    color var(--transition-base), background-color var(--transition-base),
+    border-color var(--transition-base);
+  --transition-transform: transform var(--transition-base);
+
+  /* ========== Z-index 系统 ========== */
+
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-modal-backdrop: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-tooltip: 70;
+  --z-toast: 100;
+}
+
+/* ========== 深色模式 ========== */
+
+[data-theme="dark"] {
+  /* 背景色 */
+  --color-bg: #0a0a0a;
+  --color-bg-elevated: #1a1a1a;
+  --color-bg-soft: #0f0f0f;
+  --color-bg-strong: #2a2a2a;
+
+  /* 文本颜色 */
+  --color-text-primary: #ededed;
+  --color-text-secondary: #cccccc;
+  --color-text-tertiary: #999999;
+  --color-text-quaternary: #666666;
+  --color-text-disabled: #444444;
+
+  /* 边框颜色 */
+  --color-border: #2a2a2a;
+  --color-border-light: #1a1a1a;
+  --color-border-dark: #3a3a3a;
+
+  /* 状态颜色 */
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* 输入框 */
+  --input-bg: #1a1a1a;
+  --input-bg-disabled: #0f0f0f;
+  --input-border-color: #2a2a2a;
+  --input-border-color-hover: #3a3a3a;
+  --input-border-color-focus: #ededed;
+
+  /* 卡片 */
+  --card-bg: #1a1a1a;
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+
+  /* Tab */
+  --tab-bg-active: #2a2a2a;
+  --tab-color: #999999;
+  --tab-color-active: #ededed;
+
+  /* 表格 */
+  --table-bg: #1a1a1a;
+  --table-bg-hover: #2a2a2a;
+  --table-bg-selected: #333333;
+  --table-border-color: #2a2a2a;
+}
+
+/* ========== 实用工具类 ========== */
+
+/* 间距工具类 */
+.spacing-xs {
+  gap: var(--spacing-xs);
+}
+.spacing-sm {
+  gap: var(--spacing-sm);
+}
+.spacing-md {
+  gap: var(--spacing-md);
+}
+.spacing-lg {
+  gap: var(--spacing-lg);
+}
+.spacing-xl {
+  gap: var(--spacing-xl);
+}
+.spacing-2xl {
+  gap: var(--spacing-2xl);
+}
+
+/* 圆角工具类 */
+.radius-sm {
+  border-radius: var(--radius-sm);
+}
+.radius-md {
+  border-radius: var(--radius-md);
+}
+.radius-lg {
+  border-radius: var(--radius-lg);
+}
+.radius-xl {
+  border-radius: var(--radius-xl);
+}
+.radius-full {
+  border-radius: var(--radius-full);
+}
+
+/* 阴影工具类 */
+.shadow-xs {
+  box-shadow: var(--shadow-xs);
+}
+.shadow-sm {
+  box-shadow: var(--shadow-sm);
+}
+.shadow-md {
+  box-shadow: var(--shadow-md);
+}
+.shadow-lg {
+  box-shadow: var(--shadow-lg);
+}
+.shadow-xl {
+  box-shadow: var(--shadow-xl);
+}
+
+/* 过渡工具类 */
+.transition-fast {
+  transition: var(--transition-fast);
+}
+.transition-base {
+  transition: var(--transition-base);
+}
+.transition-slow {
+  transition: var(--transition-slow);
+}
+.transition-all {
+  transition: var(--transition-all);
+}
+.transition-colors {
+  transition: var(--transition-colors);
+}

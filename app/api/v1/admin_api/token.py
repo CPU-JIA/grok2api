@@ -1,10 +1,10 @@
 import asyncio
 
 import orjson
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.core.auth import get_app_key, verify_app_key
+from app.core.auth import verify_app_key
 from app.core.batch import create_task, expire_task, get_task
 from app.core.logger import logger
 from app.core.storage import get_storage
@@ -201,13 +201,8 @@ async def refresh_tokens_async(data: dict):
     }
 
 
-@router.get("/batch/{task_id}/stream")
-async def batch_stream(task_id: str, request: Request):
-    app_key = get_app_key()
-    if app_key:
-        key = request.query_params.get("app_key")
-        if key != app_key:
-            raise HTTPException(status_code=401, detail="Invalid authentication token")
+@router.get("/batch/{task_id}/stream", dependencies=[Depends(verify_app_key)])
+async def batch_stream(task_id: str):
     task = get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")

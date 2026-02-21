@@ -61,6 +61,27 @@ async def lifespan(app: FastAPI):
     # 2. 加载配置
     await config.load()
 
+    # 2.1 安全检查：强制修改默认密钥
+    app_key = get_config("app.app_key", "")
+    if app_key == "grok2api":
+        logger.error("=" * 80)
+        logger.error("CRITICAL SECURITY ERROR: Default app_key detected!")
+        logger.error("The default app_key 'grok2api' is insecure and MUST be changed.")
+        logger.error(
+            "Please set a strong app_key in your config.toml or environment variables."
+        )
+        logger.error("=" * 80)
+        sys.exit(1)
+
+    # 2.2 安全检查：session_secret 必须配置
+    session_secret = get_config("app.session_secret", "")
+    if not session_secret:
+        logger.error("=" * 80)
+        logger.error("CRITICAL SECURITY ERROR: session_secret not configured!")
+        logger.error("Please set a strong session_secret in your config.toml.")
+        logger.error("=" * 80)
+        sys.exit(1)
+
     # 3. 启动服务显示
     logger.info("Starting Grok2API...")
     logger.info(f"Platform: {platform.system()} {platform.release()}")
@@ -145,12 +166,25 @@ def create_app() -> FastAPI:
     )
 
     # CORS 配置
+    allowed_origins = get_config("app.allowed_origins", [])
+    if not allowed_origins:
+        logger.warning(
+            "SECURITY WARNING: No allowed_origins configured. "
+            "Using permissive defaults for development. "
+            "Please configure allowed_origins in production!"
+        )
+        # 开发环境默认值
+        allowed_origins = [
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+        ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization"],
     )
 
     # 请求日志和 ID 中间件
@@ -216,9 +250,7 @@ if __name__ == "__main__":
 
     ws_impl = os.getenv("SERVER_WS_IMPL", "wsproto").strip().lower() or "wsproto"
     if ws_impl not in {"wsproto", "websockets", "websockets-sansio", "none"}:
-        logger.warning(
-            f"Invalid SERVER_WS_IMPL={ws_impl}, fallback to wsproto"
-        )
+        logger.warning(f"Invalid SERVER_WS_IMPL={ws_impl}, fallback to wsproto")
         ws_impl = "wsproto"
 
     uvicorn.run(

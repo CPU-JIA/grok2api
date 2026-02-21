@@ -116,6 +116,10 @@
   background: #f3f4f6;
 }
 
+.cache-gallery-item img {
+  cursor: zoom-in;
+}
+
 .cache-gallery-meta {
   font-size: 11px;
   color: var(--accents-4);
@@ -175,6 +179,88 @@
   border-radius: 6px;
   object-fit: cover;
   border: 1px solid var(--border);
+}
+
+.cache-preview.cache-preview-clickable {
+  cursor: zoom-in;
+}
+
+.cache-preview-dialog {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: min(92vw, 1080px);
+  max-height: 92vh;
+}
+
+.cache-preview-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.cache-preview-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cache-preview-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cache-preview-close svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.cache-preview-close:hover {
+  background: rgba(0, 0, 0, 0.62);
+  border-color: rgba(255, 255, 255, 0.52);
+}
+
+.cache-preview-image {
+  width: 100%;
+  max-height: calc(92vh - 86px);
+  object-fit: contain;
+  border-radius: 12px;
+  background: #0b0b0b;
+}
+
+.cache-preview-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #e5e7eb;
+  padding: 2px 2px 0;
+}
+
+.cache-preview-name {
+  font-size: 12px;
+  font-family: 'Geist Mono', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cache-preview-meta {
+  font-size: 11px;
+  color: #9ca3af;
 }
 
 #confirm-dialog.confirm-dialog {

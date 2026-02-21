@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Union
 
+import orjson
 from fastapi import APIRouter, File, Form, UploadFile, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
@@ -62,6 +63,25 @@ def _extract_status_code(exc: Exception, default: int = 500) -> int:
         return int(status or default)
     except Exception:
         return default
+
+
+def _stream_error_sse(exc: Exception) -> list[str]:
+    status = _extract_status_code(exc)
+    message = str(exc) or "Upstream stream failed"
+    if len(message) > 400:
+        message = message[:400] + "..."
+    payload = {
+        "type": "error",
+        "error": {
+            "message": message,
+            "code": "upstream_error",
+            "status": status,
+        },
+    }
+    return [
+        f"event: error\ndata: {orjson.dumps(payload).decode()}\n\n",
+        "data: [DONE]\n\n",
+    ]
 
 
 class ImageGenerationRequest(BaseModel):
@@ -364,7 +384,8 @@ async def create_image(request: ImageGenerationRequest, raw_request: Request):
                 except Exception as exc:
                     err = str(exc)
                     status = _extract_status_code(exc)
-                    raise
+                    for chunk in _stream_error_sse(exc):
+                        yield chunk
                 finally:
                     await record(ok, status, error=err, stream=True)
 
@@ -564,7 +585,8 @@ async def edit_image(
                 except Exception as exc:
                     err = str(exc)
                     status = _extract_status_code(exc)
-                    raise
+                    for chunk in _stream_error_sse(exc):
+                        yield chunk
                 finally:
                     await record(ok, status, error=err, stream_mode=True)
 

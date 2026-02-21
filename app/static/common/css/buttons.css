@@ -1,0 +1,297 @@
+/* Unified Button System - 统一按钮样式系统 */
+
+/* ========== 基础按钮样式 ========== */
+
+.btn,
+.geist-button,
+.geist-button-outline,
+.geist-button-danger {
+  /* 布局 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+
+  /* 尺寸 */
+  height: var(--btn-height-md);
+  padding: var(--btn-padding-md);
+
+  /* 字体 */
+  font-family: var(--font-family-sans);
+  font-size: var(--btn-font-size-md);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+
+  /* 边框和圆角 */
+  border: 1px solid transparent;
+  border-radius: var(--btn-radius);
+
+  /* 交互 */
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  text-decoration: none;
+
+  /* 过渡动画 */
+  transition: var(--transition-colors);
+}
+
+/* ========== 按钮尺寸变体 ========== */
+
+.btn-sm {
+  height: var(--btn-height-sm);
+  padding: var(--btn-padding-sm);
+  font-size: var(--btn-font-size-sm);
+}
+
+.btn-lg {
+  height: var(--btn-height-lg);
+  padding: var(--btn-padding-lg);
+  font-size: var(--btn-font-size-lg);
+}
+
+/* ========== 主要按钮（Primary） ========== */
+
+.btn-primary,
+.geist-button {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover,
+.geist-button:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btn-primary:active,
+.geist-button:active {
+  transform: translateY(1px);
+}
+
+/* ========== 次要按钮（Outline） ========== */
+
+.btn-outline,
+.geist-button-outline {
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.btn-outline:hover,
+.geist-button-outline:hover {
+  background-color: var(--color-bg-soft);
+  border-color: var(--color-border-dark);
+}
+
+.btn-outline:active,
+.geist-button-outline:active {
+  transform: translateY(1px);
+}
+
+/* ========== 危险按钮（Danger） ========== */
+
+.btn-danger,
+.geist-button-danger {
+  background-color: var(--color-error);
+  color: #ffffff;
+  border-color: var(--color-error);
+}
+
+.btn-danger:hover,
+.geist-button-danger:hover {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.btn-danger:active,
+.geist-button-danger:active {
+  transform: translateY(1px);
+}
+
+/* ========== 成功按钮（Success） ========== */
+
+.btn-success {
+  background-color: var(--color-success);
+  color: #ffffff;
+  border-color: var(--color-success);
+}
+
+.btn-success:hover {
+  background-color: #047857;
+  border-color: #047857;
+}
+
+.btn-success:active {
+  transform: translateY(1px);
+}
+
+/* ========== 幽灵按钮（Ghost） ========== */
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  background-color: var(--color-bg-soft);
+  color: var(--color-text-primary);
+}
+
+.btn-ghost:active {
+  transform: translateY(1px);
+}
+
+/* ========== 链接按钮（Link） ========== */
+
+.btn-link {
+  background-color: transparent;
+  color: var(--color-primary);
+  border-color: transparent;
+  padding: 0;
+  height: auto;
+}
+
+.btn-link:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+/* ========== 按钮状态 ========== */
+
+/* 禁用状态 */
+.btn:disabled,
+.btn[disabled],
+.geist-button:disabled,
+.geist-button-outline:disabled,
+.geist-button-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 加载状态 */
+.btn.is-loading,
+.geist-button.is-loading,
+.geist-button-outline.is-loading,
+.geist-button-danger.is-loading {
+  opacity: 0.6;
+  cursor: wait;
+  pointer-events: none;
+  position: relative;
+}
+
+.btn.is-loading::after,
+.geist-button.is-loading::after,
+.geist-button-outline.is-loading::after,
+.geist-button-danger.is-loading::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========== 按钮组 ========== */
+
+.btn-group {
+  display: inline-flex;
+  gap: var(--spacing-sm);
+}
+
+.btn-group-compact {
+  display: inline-flex;
+  gap: 0;
+}
+
+.btn-group-compact > .btn,
+.btn-group-compact > .geist-button,
+.btn-group-compact > .geist-button-outline {
+  border-radius: 0;
+  margin-left: -1px;
+}
+
+.btn-group-compact > .btn:first-child,
+.btn-group-compact > .geist-button:first-child,
+.btn-group-compact > .geist-button-outline:first-child {
+  border-top-left-radius: var(--btn-radius);
+  border-bottom-left-radius: var(--btn-radius);
+  margin-left: 0;
+}
+
+.btn-group-compact > .btn:last-child,
+.btn-group-compact > .geist-button:last-child,
+.btn-group-compact > .geist-button-outline:last-child {
+  border-top-right-radius: var(--btn-radius);
+  border-bottom-right-radius: var(--btn-radius);
+}
+
+/* ========== 图标按钮 ========== */
+
+.btn-icon {
+  width: var(--btn-height-md);
+  height: var(--btn-height-md);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon.btn-sm {
+  width: var(--btn-height-sm);
+  height: var(--btn-height-sm);
+}
+
+.btn-icon.btn-lg {
+  width: var(--btn-height-lg);
+  height: var(--btn-height-lg);
+}
+
+/* ========== 全宽按钮 ========== */
+
+.btn-block {
+  width: 100%;
+  display: flex;
+}
+
+/* ========== 圆形按钮 ========== */
+
+.btn-pill {
+  border-radius: var(--btn-radius-pill);
+}
+
+/* ========== 深色模式适配 ========== */
+
+[data-theme="dark"] .btn-outline,
+[data-theme="dark"] .geist-button-outline {
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .btn-outline:hover,
+[data-theme="dark"] .geist-button-outline:hover {
+  background-color: var(--color-bg-strong);
+  border-color: var(--color-border-dark);
+}
+
+[data-theme="dark"] .btn-ghost {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .btn-ghost:hover {
+  background-color: var(--color-bg-strong);
+  color: var(--color-text-primary);
+}

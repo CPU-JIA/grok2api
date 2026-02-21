@@ -1,35 +1,72 @@
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
 
-from app.core.auth import verify_app_key
+from app.core.auth import (
+    clear_admin_session_cookie,
+    clear_public_session_cookie,
+    get_app_key,
+    is_valid_app_key,
+    set_admin_session_cookie,
+    verify_app_key,
+)
 from app.core.config import config
 from app.core.storage import (
-    get_storage as get_storage_instance,
     LocalStorage,
     RedisStorage,
     SQLStorage,
+    get_storage as get_storage_instance,
 )
 
 router = APIRouter()
 
 
+class SessionLoginRequest(BaseModel):
+    key: str = ""
+
+
+@router.post("/session")
+async def admin_create_session(payload: SessionLoginRequest, request: Request, response: Response):
+    if not get_app_key():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="App key is not configured",
+        )
+
+    if not is_valid_app_key(payload.key):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+
+    set_admin_session_cookie(response, request)
+    return {"status": "success"}
+
+
+@router.delete("/session")
+async def admin_delete_session(response: Response):
+    clear_admin_session_cookie(response)
+    # Keep behavior explicit: admin logout should also clear public web session.
+    clear_public_session_cookie(response)
+    return {"status": "success"}
+
+
 @router.get("/verify", dependencies=[Depends(verify_app_key)])
 async def admin_verify():
-    """验证后台访问密钥（app_key）"""
+    """Verify admin access."""
     return {"status": "success"}
 
 
 @router.get("/config", dependencies=[Depends(verify_app_key)])
 async def get_config():
-    """获取当前配置"""
-    # 暴露原始配置字典
+    """Get current runtime config."""
     return config._config
 
 
 @router.post("/config", dependencies=[Depends(verify_app_key)])
 async def update_config(data: dict):
-    """更新配置"""
+    """Update runtime config."""
     try:
         await config.update(data)
         return {"status": "success", "message": "配置已更新"}
@@ -39,7 +76,7 @@ async def update_config(data: dict):
 
 @router.get("/storage", dependencies=[Depends(verify_app_key)])
 async def get_storage_type():
-    """获取当前存储模式"""
+    """Get active storage backend name."""
     storage_type = os.getenv("SERVER_STORAGE_TYPE", "").lower()
     if not storage_type:
         storage = get_storage_instance()

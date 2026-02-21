@@ -1,0 +1,39 @@
+.public-main {
+  flex: 1;
+  min-height: calc(100vh - 58px);
+}
+
+.public-view {
+  opacity: 0;
+  transform: none;
+  transition: opacity 0.16s ease;
+  will-change: opacity;
+}
+
+.public-view.is-active {
+  opacity: 1;
+  transform: none;
+}
+
+.public-view.hidden {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-view {
+    transition: none;
+  }
+}
+
+
+.public-view .container {
+  max-width: 1360px;
+}
+
+@media (max-width: 768px) {
+  .public-view .container {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+

@@ -5,12 +5,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Grok2API - Imagine 瀑布流</title>
-  <link rel="icon" href="/static/common/img/favicon/favicon.ico">
+  <link rel="icon" href="/static/common/img/favicon/favicon.ico?v=20260221e">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-sans/style.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/geist@1.0.0/dist/fonts/geist-mono/style.css" rel="stylesheet">
-  <link href="/static/common/css/common.css?v=1.5.1" rel="stylesheet">
-  <link href="/static/public/css/imagine.css?v=1.5.1" rel="stylesheet">
+  <link href="/static/common/css/common.css?v=1.5.37" rel="stylesheet">
+  <link href="/static/public/css/imagine.css?v=1.5.37" rel="stylesheet">
   <link href="/static/common/css/toast.css" rel="stylesheet">
 </head>
 
@@ -22,7 +22,7 @@
     <div class="space-y-6">
         <div>
           <h2 class="text-2xl font-semibold tracking-tight">Imagine 瀑布流</h2>
-          <p class="text-[var(--accents-4)] mt-1 text-sm">通过 WebSocket 持续生成图片，实时展示图像瀑布流（Base64 / URL）。单次请求最多 6 张，9/16 张会自动分批补齐。</p>
+          <p class="text-[var(--accents-4)] mt-1 text-sm">通过 WebSocket 持续生成图片，实时展示图像瀑布流（Base64 / URL）。单次请求支持 1-16 张：6 张以内走流式，超过 6 张按每批 6 张并行拆分后聚合返回。</p>
         </div>
 
         <div class="h-px bg-[var(--border)]"></div>
@@ -253,12 +253,12 @@
 
   <div id="app-footer"></div>
 
-  <script src="/static/common/js/admin-auth.js?v=1.5.1"></script>
-  <script src="/static/common/js/public-header.js?v=1.5.1"></script>
-  <script src="/static/common/js/footer.js?v=1.5.1"></script>
+  <script src="/static/common/js/admin-auth.js?v=1.5.37"></script>
+  <script src="/static/common/js/public-header.js?v=1.5.37"></script>
+  <script src="/static/common/js/footer.js?v=1.5.37"></script>
   <script src="/static/common/js/toast.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="/static/public/js/imagine.js?v=1.5.1"></script>
+  <script src="/static/public/js/imagine.js?v=1.5.37"></script>
 </body>
 
 </html>
