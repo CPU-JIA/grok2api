@@ -21,37 +21,100 @@
 
 ## 快速开始
 
-### 本地开发
+### 推荐方案：Docker Compose + Redis
 
-```bash
-uv sync
-uv run main.py
-```
-
-### Docker Compose
+**生产环境推荐使用 Redis 存储**，性能更好，支持多 worker 并发，数据持久化可靠。
 
 ```bash
 git clone https://github.com/CPU-JIA/grok2api
 cd grok2api
 
+# 启动 Grok2API + Redis
+docker compose -f docker-compose.full.yml up -d grok2api redis
+```
+
+访问 `http://localhost:8000/admin` 开始使用（默认密码：`grok2api`）
+
+**其他存储方案**：
+
+```bash
+# 本地文件存储（单 worker，适合测试）
 docker compose up -d
+
+# MySQL 存储
+docker compose -f docker-compose.full.yml up -d grok2api mysql
+
+# PostgreSQL 存储
+docker compose -f docker-compose.full.yml up -d grok2api postgres
+```
+
+### 本地开发
+
+```bash
+# 安装依赖
+uv sync
+
+# 启动服务
+uv run main.py
+
+# 或使用 Redis（需先启动 Redis）
+SERVER_STORAGE_TYPE=redis SERVER_STORAGE_URL=redis://localhost:6379/0 uv run main.py
 ```
 
 ### Vercel 部署
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/CPU-JIA/grok2api&env=LOG_LEVEL,LOG_FILE_ENABLED,DATA_DIR,SERVER_STORAGE_TYPE,SERVER_STORAGE_URL&envDefaults=%7B%22DATA_DIR%22%3A%22/tmp/data%22%2C%22LOG_FILE_ENABLED%22%3A%22false%22%2C%22LOG_LEVEL%22%3A%22INFO%22%2C%22SERVER_STORAGE_TYPE%22%3A%22local%22%2C%22SERVER_STORAGE_URL%22%3A%22%22%7D)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/CPU-JIA/grok2api&env=LOG_LEVEL,LOG_FILE_ENABLED,DATA_DIR,SERVER_STORAGE_TYPE,SERVER_STORAGE_URL&envDefaults=%7B%22DATA_DIR%22%3A%22/tmp/data%22%2C%22LOG_FILE_ENABLED%22%3A%22false%22%2C%22LOG_LEVEL%22%3A%22INFO%22%2C%22SERVER_STORAGE_TYPE%22%3A%22redis%22%2C%22SERVER_STORAGE_URL%22%3A%22redis://default:password@host:6379/0%22%7D)
 
-> 请务必设置 `DATA_DIR=/tmp/data` 并关闭文件日志 `LOG_FILE_ENABLED=false`。
+> **重要配置**：
 >
-> 持久化请使用 MySQL / Redis / PostgreSQL，并设置：`SERVER_STORAGE_TYPE` 与 `SERVER_STORAGE_URL`。
+> - 必须设置 `DATA_DIR=/tmp/data`（Vercel 无持久化文件系统）
+> - 必须关闭文件日志 `LOG_FILE_ENABLED=false`
+> - **强烈推荐使用 Redis**：`SERVER_STORAGE_TYPE=redis`，`SERVER_STORAGE_URL=redis://...`
+> - 可选 MySQL/PostgreSQL：设置对应的 `SERVER_STORAGE_TYPE` 和 `SERVER_STORAGE_URL`
 
 ### Render 部署
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/CPU-JIA/grok2api)
 
-> Render 免费实例 15 分钟无访问会休眠；重启/重新部署会丢失数据。
+> **注意事项**：
 >
-> 持久化请使用 MySQL / Redis / PostgreSQL，并设置：`SERVER_STORAGE_TYPE` 与 `SERVER_STORAGE_URL`。
+> - Render 免费实例 15 分钟无访问会休眠
+> - 重启/重新部署会丢失本地数据
+> - **强烈推荐使用 Redis/MySQL/PostgreSQL** 实现数据持久化
+
+<br>
+
+## 存储方案对比
+
+| 存储类型       | 性能   | 多 Worker | 持久化 | 适用场景                     |
+| :------------- | :----- | :-------- | :----- | :--------------------------- |
+| **Redis**      | ⭐⭐⭐ | ✅        | ✅     | **生产环境推荐**，高并发场景 |
+| **MySQL**      | ⭐⭐   | ✅        | ✅     | 需要 SQL 查询和关系型数据    |
+| **PostgreSQL** | ⭐⭐   | ✅        | ✅     | 需要高级 SQL 特性            |
+| **Local**      | ⭐     | ❌        | ⚠️     | 仅适合开发测试，单 worker    |
+
+**推荐配置**：
+
+```yaml
+# docker-compose.full.yml 中的 Redis 配置
+environment:
+  SERVER_STORAGE_TYPE: redis
+  SERVER_STORAGE_URL: redis://:grok2api_redis_pass@redis:6379/0
+```
+
+**连接字符串格式**：
+
+```bash
+# Redis
+redis://localhost:6379/0
+redis://:password@localhost:6379/0
+
+# MySQL
+mysql+aiomysql://user:password@localhost:3306/database
+
+# PostgreSQL
+postgresql+asyncpg://user:password@localhost:5432/database
+```
 
 <br>
 

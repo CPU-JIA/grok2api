@@ -1,16 +1,68 @@
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-.env
-.env.*
+# Git
 .git
 .gitignore
-.logs
-logs
-/data
-/data/*
-/data/tmp
-/data/tmp/*
-/tests
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+env/
+.venv
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Data and logs (mounted as volumes)
+data/
+logs/
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# CI/CD
+.github/
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Testing
+tests/
+test_*.py
+*_test.py
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
+tmp/
+
+# OS
+Thumbs.db

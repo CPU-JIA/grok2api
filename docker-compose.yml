@@ -1,23 +1,59 @@
 services:
   grok2api:
     container_name: grok2api
-    image: ghcr.io/chenyme/grok2api:latest
+    image: ghcr.io/cpu-jia/grok2api:latest
     ports:
       - "8000:8000"
     environment:
+      # Timezone
       TZ: Asia/Shanghai
+
+      # Logging
       LOG_LEVEL: INFO
+      LOG_FILE_ENABLED: "true"
+
+      # Server Configuration
+      SERVER_HOST: 0.0.0.0
       SERVER_PORT: 8000
       SERVER_WORKERS: 1
-      SERVER_STORAGE_TYPE: local
-      # SERVER_STORAGE_URL: 
 
-      # SERVER_STORAGE_TYPE: (local, redis, mysql, pgsql) default: local
-      # SERVER_STORAGE_URL: (local mode is empty) default: empty
+      # Storage Backend (local, redis, mysql, pgsql)
+      SERVER_STORAGE_TYPE: local
+      # SERVER_STORAGE_URL: ""
+
+      # Storage URL Examples:
       #   Redis: redis://localhost:6379/0 or redis://:password@localhost:6379/0
-      #   MySQL: mysql+aiomysql://user:pass@localhost/db
-      #   PgSQL: postgresql+asyncpg://user:pass@localhost/db
+      #   MySQL: mysql+aiomysql://user:pass@localhost:3306/db
+      #   PostgreSQL: postgresql+asyncpg://user:pass@localhost:5432/db
+
+      # Data Directory (for local storage)
+      DATA_DIR: /app/data
+
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+
     restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+    networks:
+      - grok2api-network
+
+networks:
+  grok2api-network:
+    driver: bridge

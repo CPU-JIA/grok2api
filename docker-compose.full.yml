@@ -1,0 +1,196 @@
+# Full Docker Compose with Redis, MySQL, and PostgreSQL options
+# Usage:
+#   Local storage:  docker compose up -d
+#   With Redis:     docker compose -f docker-compose.full.yml up -d grok2api redis
+#   With MySQL:     docker compose -f docker-compose.full.yml up -d grok2api mysql
+#   With PostgreSQL: docker compose -f docker-compose.full.yml up -d grok2api postgres
+
+services:
+  grok2api:
+    container_name: grok2api
+    image: ghcr.io/cpu-jia/grok2api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # Timezone
+      TZ: Asia/Shanghai
+
+      # Logging
+      LOG_LEVEL: INFO
+      LOG_FILE_ENABLED: "true"
+
+      # Server Configuration
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8000
+      SERVER_WORKERS: 1
+
+      # Storage Backend (local, redis, mysql, pgsql)
+      SERVER_STORAGE_TYPE: local
+      # SERVER_STORAGE_URL: ""
+
+      # Uncomment for Redis:
+      # SERVER_STORAGE_TYPE: redis
+      # SERVER_STORAGE_URL: redis://:grok2api_redis_pass@redis:6379/0
+
+      # Uncomment for MySQL:
+      # SERVER_STORAGE_TYPE: mysql
+      # SERVER_STORAGE_URL: mysql+aiomysql://grok2api:grok2api_mysql_pass@mysql:3306/grok2api
+
+      # Uncomment for PostgreSQL:
+      # SERVER_STORAGE_TYPE: pgsql
+      # SERVER_STORAGE_URL: postgresql+asyncpg://grok2api:grok2api_pg_pass@postgres:5432/grok2api
+
+      # Data Directory
+      DATA_DIR: /app/data
+
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+    depends_on:
+      redis:
+        condition: service_healthy
+        required: false
+      mysql:
+        condition: service_healthy
+        required: false
+      postgres:
+        condition: service_healthy
+        required: false
+
+    networks:
+      - grok2api-network
+
+  # Redis (optional)
+  redis:
+    container_name: grok2api-redis
+    image: redis:7-alpine
+    command: redis-server --requirepass grok2api_redis_pass --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - grok2api-network
+    profiles:
+      - redis
+
+  # MySQL (optional)
+  mysql:
+    container_name: grok2api-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: grok2api_root_pass
+      MYSQL_DATABASE: grok2api
+      MYSQL_USER: grok2api
+      MYSQL_PASSWORD: grok2api_mysql_pass
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-pgrok2api_root_pass",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - grok2api-network
+    profiles:
+      - mysql
+
+  # PostgreSQL (optional)
+  postgres:
+    container_name: grok2api-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: grok2api
+      POSTGRES_USER: grok2api
+      POSTGRES_PASSWORD: grok2api_pg_pass
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grok2api"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - grok2api-network
+    profiles:
+      - postgres
+
+volumes:
+  redis-data:
+    driver: local
+  mysql-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+networks:
+  grok2api-network:
+    driver: bridge

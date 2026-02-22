@@ -1,5 +1,9 @@
 FROM python:3.13-alpine AS builder
 
+LABEL maintainer="CPU-JIA <jia202520@gmail.com>"
+LABEL org.opencontainers.image.source="https://github.com/CPU-JIA/grok2api"
+LABEL org.opencontainers.image.description="Grok2API - OpenAI-compatible API for Grok AI services"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Shanghai \
