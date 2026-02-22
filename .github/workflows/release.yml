@@ -12,7 +12,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -23,7 +22,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: cpu-jia
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Extract version from tag
@@ -34,7 +33,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/grok2api
+          images: ghcr.io/cpu-jia/grok2api
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -48,9 +47,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
+          provenance: false
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -60,16 +58,16 @@ jobs:
             ## Docker Image
 
             ```bash
-            docker pull ghcr.io/${{ github.repository_owner }}/grok2api:${{ steps.version.outputs.VERSION }}
-            docker pull ghcr.io/${{ github.repository_owner }}/grok2api:latest
+            docker pull ghcr.io/cpu-jia/grok2api:${{ steps.version.outputs.VERSION }}
+            docker pull ghcr.io/cpu-jia/grok2api:latest
             ```
 
             ## Docker Compose
 
             ```bash
             # Update docker-compose.yml to use the new version
-            image: ghcr.io/${{ github.repository_owner }}/grok2api:${{ steps.version.outputs.VERSION }}
+            image: ghcr.io/cpu-jia/grok2api:${{ steps.version.outputs.VERSION }}
 
             # Or use latest
-            image: ghcr.io/${{ github.repository_owner }}/grok2api:latest
+            image: ghcr.io/cpu-jia/grok2api:latest
             ```
