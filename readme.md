@@ -2,6 +2,8 @@
 
 **中文** | [English](docs/README.en.md)
 
+[![CI](https://github.com/CPU-JIA/grok2api/actions/workflows/ci.yml/badge.svg)](https://github.com/CPU-JIA/grok2api/actions/workflows/ci.yml)
+
 > [!IMPORTANT]
 > 本项目 fork 自 [@chenyme/grok2api](https://github.com/chenyme/grok2api)，由 [@CPU-JIA](https://github.com/CPU-JIA) 维护和优化。
 >
