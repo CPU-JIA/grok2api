@@ -54,6 +54,10 @@ services:
       # Data Directory
       DATA_DIR: /app/data
 
+      # Security (IMPORTANT: Set these in .env file)
+      GROK2API_APP_KEY: ${GROK2API_APP_KEY:-grok2api}
+      GROK2API_SESSION_SECRET: ${GROK2API_SESSION_SECRET:-}
+
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
