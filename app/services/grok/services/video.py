@@ -44,6 +44,7 @@ from app.services.token.manager import BASIC_POOL_NAME
 _VIDEO_SEMAPHORE = None
 _VIDEO_SEM_VALUE = 0
 
+
 def _get_video_semaphore() -> asyncio.Semaphore:
     """Reverse 接口并发控制（video 服务）。"""
     global _VIDEO_SEMAPHORE, _VIDEO_SEM_VALUE
@@ -703,7 +704,8 @@ class VideoCollectProcessor(BaseProcessor):
             )
         except StreamFirstTimeoutError as e:
             logger.warning(
-                f"Video collect first response timeout: {e}", extra={"model": self.model}
+                f"Video collect first response timeout: {e}",
+                extra={"model": self.model},
             )
         except StreamTotalTimeoutError as e:
             logger.warning(

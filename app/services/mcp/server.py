@@ -75,7 +75,9 @@ if mcp is not None:
         system_prompt: Optional[str] = None,
     ) -> str:
         """Ask Grok and return plain text answer."""
-        return await ask_grok_impl(query=query, model=model, system_prompt=system_prompt)
+        return await ask_grok_impl(
+            query=query, model=model, system_prompt=system_prompt
+        )
 
 
 def create_mcp_http_app() -> Optional[Any]:

@@ -155,7 +155,9 @@ class ApiKeyManager:
             self._schedule_save()
         return deleted
 
-    async def update_key(self, key: str, name: Optional[str] = None, is_active: Optional[bool] = None) -> bool:
+    async def update_key(
+        self, key: str, name: Optional[str] = None, is_active: Optional[bool] = None
+    ) -> bool:
         await self.init()
         item = self._find_key(key)
         if not item:

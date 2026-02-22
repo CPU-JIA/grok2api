@@ -82,7 +82,9 @@ class AssetsListReverse:
                     status = getattr(e, "status_code", None)
                 if status == 401:
                     try:
-                        await TokenService.record_fail(token, status, "assets_list_auth_failed")
+                        await TokenService.record_fail(
+                            token, status, "assets_list_auth_failed"
+                        )
                     except Exception:
                         pass
                 raise
@@ -99,8 +101,3 @@ class AssetsListReverse:
 
 
 __all__ = ["AssetsListReverse"]
-
-
-
-
-

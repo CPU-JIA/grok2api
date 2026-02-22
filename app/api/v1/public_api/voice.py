@@ -121,10 +121,10 @@ async def public_voice_token(
         )
 
 
-
-
 @router.post("/session")
-async def public_create_session(payload: PublicSessionLoginRequest, request: Request, response: Response):
+async def public_create_session(
+    payload: PublicSessionLoginRequest, request: Request, response: Response
+):
     if not has_public_access(payload.key, request.cookies):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -139,6 +139,7 @@ async def public_create_session(payload: PublicSessionLoginRequest, request: Req
 async def public_delete_session(response: Response):
     clear_public_session_cookie(response)
     return {"status": "success"}
+
 
 @router.get("/verify", dependencies=[Depends(verify_public_key)])
 async def public_verify_api():

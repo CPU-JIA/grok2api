@@ -75,7 +75,9 @@ class AcceptTosReverse:
                         details={"status": response.status_code},
                     )
 
-                logger.debug(f"AcceptTosReverse: Request successful, {response.status_code}")
+                logger.debug(
+                    f"AcceptTosReverse: Request successful, {response.status_code}"
+                )
 
                 return response
 
@@ -117,6 +119,3 @@ class AcceptTosReverse:
 
 
 __all__ = ["AcceptTosReverse"]
-
-
-

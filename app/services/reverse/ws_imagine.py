@@ -42,7 +42,9 @@ class ImagineWebSocketReverse:
             return True
         return blob_size > final_min_bytes
 
-    def _classify_image(self, url: str, blob: str, final_min_bytes: int, medium_min_bytes: int) -> Optional[Dict[str, object]]:
+    def _classify_image(
+        self, url: str, blob: str, final_min_bytes: int, medium_min_bytes: int
+    ) -> Optional[Dict[str, object]]:
         if not url or not blob:
             return None
 
@@ -68,7 +70,9 @@ class ImagineWebSocketReverse:
             "is_final": is_final,
         }
 
-    def _build_request_message(self, request_id: str, prompt: str, aspect_ratio: str, enable_nsfw: bool) -> Dict[str, object]:
+    def _build_request_message(
+        self, request_id: str, prompt: str, aspect_ratio: str, enable_nsfw: bool
+    ) -> Dict[str, object]:
         return {
             "type": "conversation.item.create",
             "timestamp": int(time.time() * 1000),
@@ -163,9 +167,7 @@ class ImagineWebSocketReverse:
             )
         except Exception as e:
             status = getattr(e, "status", None)
-            error_code = (
-                "rate_limit_exceeded" if status == 429 else "connection_failed"
-            )
+            error_code = "rate_limit_exceeded" if status == 429 else "connection_failed"
             logger.error(f"WebSocket connect failed: {e}")
             yield {
                 "type": "error",
@@ -227,7 +229,10 @@ class ImagineWebSocketReverse:
                                 continue
 
                             image_id = info["image_id"]
-                            if info["stage"] == "medium" and medium_received_time is None:
+                            if (
+                                info["stage"] == "medium"
+                                and medium_received_time is None
+                            ):
                                 medium_received_time = time.monotonic()
 
                             if info["is_final"] and image_id not in final_ids:

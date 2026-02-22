@@ -91,7 +91,9 @@ class VideoUpscaleReverse:
                     status = getattr(e, "status_code", None)
                 if status == 401:
                     try:
-                        await TokenService.record_fail(token, status, "video_upscale_auth_failed")
+                        await TokenService.record_fail(
+                            token, status, "video_upscale_auth_failed"
+                        )
                     except Exception:
                         pass
                 raise
@@ -108,6 +110,3 @@ class VideoUpscaleReverse:
 
 
 __all__ = ["VideoUpscaleReverse"]
-
-
-

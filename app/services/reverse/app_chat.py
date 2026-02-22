@@ -12,10 +12,16 @@ from app.core.exceptions import UpstreamException
 from app.services.token.service import TokenService
 from app.services.reverse.utils.headers import build_headers
 from app.services.reverse.utils.retry import retry_on_status
-from app.services.proxy_pool import request_with_proxy_retry, get_proxy_url, build_proxies
+from app.services.proxy_pool import (
+    request_with_proxy_retry,
+    get_proxy_url,
+    build_proxies,
+)
 
 CHAT_API = "https://grok.com/rest/app-chat/conversations/new"
-CHAT_CONTINUE_API = "https://grok.com/rest/app-chat/conversations/{conversation_id}/responses"
+CHAT_CONTINUE_API = (
+    "https://grok.com/rest/app-chat/conversations/{conversation_id}/responses"
+)
 CHAT_SHARE_API = "https://grok.com/rest/app-chat/conversations/{conversation_id}/share"
 CHAT_CLONE_API = "https://grok.com/rest/app-chat/share_links/{share_link_id}/clone"
 
@@ -110,7 +116,7 @@ class AppChatReverse:
         model_config_override: Dict[str, Any] = None,
     ) -> Any:
         """Send app chat request to Grok.
-        
+
         Args:
             session: AsyncSession, the session to use for the request.
             token: str, the SSO token.
@@ -194,7 +200,9 @@ class AppChatReverse:
                     return status
                 return None
 
-            response = await retry_on_status(_send_request, extract_status=extract_status)
+            response = await retry_on_status(
+                _send_request, extract_status=extract_status
+            )
 
             # Stream response
             async def stream_response():
@@ -313,7 +321,9 @@ class AppChatReverse:
                     return status
                 return None
 
-            response = await retry_on_status(_send_request, extract_status=extract_status)
+            response = await retry_on_status(
+                _send_request, extract_status=extract_status
+            )
 
             async def stream_response():
                 try:
@@ -426,7 +436,3 @@ class AppChatReverse:
 
 
 __all__ = ["AppChatReverse"]
-
-
-
-

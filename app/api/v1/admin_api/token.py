@@ -189,9 +189,11 @@ async def refresh_tokens_async(data: dict):
             task.fail_task(str(e))
         finally:
             import asyncio
+
             asyncio.create_task(expire_task(task.id, 300))
 
     import asyncio
+
     asyncio.create_task(_run())
 
     return {
@@ -378,9 +380,11 @@ async def enable_nsfw_async(data: dict):
             task.fail_task(str(e))
         finally:
             import asyncio
+
             asyncio.create_task(expire_task(task.id, 300))
 
     import asyncio
+
     asyncio.create_task(_run())
 
     return {

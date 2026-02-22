@@ -30,6 +30,7 @@ def _get_nsfw_semaphore() -> asyncio.Semaphore:
 
 class NSFWService:
     """NSFW 模式服务"""
+
     @staticmethod
     async def batch(
         tokens: list[str],
@@ -40,10 +41,12 @@ class NSFWService:
     ) -> Dict[str, Dict[str, Any]]:
         """Batch enable NSFW."""
         batch_size = get_config("nsfw.batch_size")
+
         async def _enable(token: str):
             try:
                 browser = get_config("proxy.browser")
                 async with ResettableSession(impersonate=browser) as session:
+
                     async def _record_fail(err: UpstreamException, reason: str):
                         status = None
                         if err.details and "status" in err.details:

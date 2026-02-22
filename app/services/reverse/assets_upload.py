@@ -20,7 +20,13 @@ class AssetsUploadReverse:
     """/rest/app-chat/upload-file reverse interface."""
 
     @staticmethod
-    async def request(session: AsyncSession, token: str, fileName: str, fileMimeType: str, content: str) -> Any:
+    async def request(
+        session: AsyncSession,
+        token: str,
+        fileName: str,
+        fileMimeType: str,
+        content: str,
+    ) -> Any:
         """Upload asset to Grok.
 
         Args:
@@ -89,7 +95,9 @@ class AssetsUploadReverse:
                     status = getattr(e, "status_code", None)
                 if status == 401:
                     try:
-                        await TokenService.record_fail(token, status, "assets_upload_auth_failed")
+                        await TokenService.record_fail(
+                            token, status, "assets_upload_auth_failed"
+                        )
                     except Exception:
                         pass
                 raise
@@ -106,8 +114,3 @@ class AssetsUploadReverse:
 
 
 __all__ = ["AssetsUploadReverse"]
-
-
-
-
-

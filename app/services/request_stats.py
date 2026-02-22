@@ -49,9 +49,13 @@ class RequestStats:
             storage = get_storage()
             data = await storage.load_json("stats.json", {})
             if isinstance(data, dict):
-                self._hourly = defaultdict(lambda: {"total": 0, "success": 0, "failed": 0})
+                self._hourly = defaultdict(
+                    lambda: {"total": 0, "success": 0, "failed": 0}
+                )
                 self._hourly.update(data.get("hourly", {}))
-                self._daily = defaultdict(lambda: {"total": 0, "success": 0, "failed": 0})
+                self._daily = defaultdict(
+                    lambda: {"total": 0, "success": 0, "failed": 0}
+                )
                 self._daily.update(data.get("daily", {}))
                 self._models = defaultdict(int)
                 self._models.update(data.get("models", {}))
@@ -110,12 +114,12 @@ class RequestStats:
 
         hour_keys = list(self._hourly.keys())
         if len(hour_keys) > hourly_keep:
-            for key in sorted(hour_keys)[: -hourly_keep]:
+            for key in sorted(hour_keys)[:-hourly_keep]:
                 del self._hourly[key]
 
         day_keys = list(self._daily.keys())
         if len(day_keys) > daily_keep:
-            for key in sorted(day_keys)[: -daily_keep]:
+            for key in sorted(day_keys)[:-daily_keep]:
                 del self._daily[key]
 
     async def record(self, model: str, success: bool):

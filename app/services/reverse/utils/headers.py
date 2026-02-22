@@ -35,7 +35,9 @@ def build_sso_cookie(sso_token: str) -> str:
     return cookie
 
 
-def _extract_major_version(browser: Optional[str], user_agent: Optional[str]) -> Optional[str]:
+def _extract_major_version(
+    browser: Optional[str], user_agent: Optional[str]
+) -> Optional[str]:
     if browser:
         match = re.search(r"(\d{2,3})", browser)
         if match:
@@ -72,18 +74,25 @@ def _detect_arch(user_agent: str) -> Optional[str]:
     return None
 
 
-def _build_client_hints(browser: Optional[str], user_agent: Optional[str]) -> Dict[str, str]:
+def _build_client_hints(
+    browser: Optional[str], user_agent: Optional[str]
+) -> Dict[str, str]:
     browser = (browser or "").strip().lower()
     user_agent = user_agent or ""
     ua = user_agent.lower()
 
     is_edge = "edge" in browser or "edg" in ua
     is_brave = "brave" in browser
-    is_chromium = any(key in browser for key in ["chrome", "chromium", "edge", "brave"]) or (
-        "chrome" in ua or "chromium" in ua or "edg" in ua
-    )
+    is_chromium = any(
+        key in browser for key in ["chrome", "chromium", "edge", "brave"]
+    ) or ("chrome" in ua or "chromium" in ua or "edg" in ua)
     is_firefox = "firefox" in ua or "firefox" in browser
-    is_safari = ("safari" in ua and "chrome" not in ua and "chromium" not in ua and "edg" not in ua) or "safari" in browser
+    is_safari = (
+        "safari" in ua
+        and "chrome" not in ua
+        and "chromium" not in ua
+        and "edg" not in ua
+    ) or "safari" in browser
 
     if not is_chromium or is_firefox or is_safari:
         return {}
@@ -102,9 +111,7 @@ def _build_client_hints(browser: Optional[str], user_agent: Optional[str]) -> Di
         brand = "Google Chrome"
 
     sec_ch_ua = (
-        f"\"{brand}\";v=\"{version}\", "
-        f"\"Chromium\";v=\"{version}\", "
-        "\"Not(A:Brand\";v=\"24\""
+        f'"{brand}";v="{version}", "Chromium";v="{version}", "Not(A:Brand";v="24"'
     )
 
     platform = _detect_platform(user_agent)
@@ -116,7 +123,7 @@ def _build_client_hints(browser: Optional[str], user_agent: Optional[str]) -> Di
         "Sec-Ch-Ua-Mobile": mobile,
     }
     if platform:
-        hints["Sec-Ch-Ua-Platform"] = f"\"{platform}\""
+        hints["Sec-Ch-Ua-Platform"] = f'"{platform}"'
     if arch:
         hints["Sec-Ch-Ua-Arch"] = arch
         hints["Sec-Ch-Ua-Bitness"] = "64"
@@ -124,7 +131,11 @@ def _build_client_hints(browser: Optional[str], user_agent: Optional[str]) -> Di
     return hints
 
 
-def build_ws_headers(token: Optional[str] = None, origin: Optional[str] = None, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+def build_ws_headers(
+    token: Optional[str] = None,
+    origin: Optional[str] = None,
+    extra: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
     """
     Build headers for WebSocket requests.
 
@@ -158,7 +169,12 @@ def build_ws_headers(token: Optional[str] = None, origin: Optional[str] = None, 
     return headers
 
 
-def build_headers(cookie_token: str, content_type: Optional[str] = None, origin: Optional[str] = None, referer: Optional[str] = None) -> Dict[str, str]:
+def build_headers(
+    cookie_token: str,
+    content_type: Optional[str] = None,
+    origin: Optional[str] = None,
+    referer: Optional[str] = None,
+) -> Dict[str, str]:
     """
     Build headers for reverse interfaces.
 
@@ -197,7 +213,9 @@ def build_headers(cookie_token: str, content_type: Optional[str] = None, origin:
         headers["Sec-Fetch-Dest"] = "empty"
     elif content_type in ["image/jpeg", "image/png", "video/mp4", "video/webm"]:
         headers["Content-Type"] = content_type
-        headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+        headers["Accept"] = (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+        )
         headers["Sec-Fetch-Dest"] = "document"
     else:
         headers["Content-Type"] = "application/json"

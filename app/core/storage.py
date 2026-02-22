@@ -114,9 +114,7 @@ class BaseStorage(abc.ABC):
                 continue
             pool_list = existing.setdefault(pool_name, [])
             normalized = {
-                k: v
-                for k, v in item.items()
-                if k not in ("pool_name", "_update_kind")
+                k: v for k, v in item.items() if k not in ("pool_name", "_update_kind")
             }
             replaced = False
             for idx, current in enumerate(pool_list):
@@ -800,7 +798,9 @@ class SQLStorage(BaseStorage):
             return tags
         return []
 
-    def _token_to_row(self, token_data: Dict[str, Any], pool_name: str) -> Dict[str, Any]:
+    def _token_to_row(
+        self, token_data: Dict[str, Any], pool_name: str
+    ) -> Dict[str, Any]:
         token_str = token_data.get("token")
         if isinstance(token_str, str) and token_str.startswith("sso="):
             token_str = token_str[4:]
@@ -1095,9 +1095,7 @@ class SQLStorage(BaseStorage):
                         if note is not None:
                             token_data["note"] = note
                         if last_asset_clear_at is not None:
-                            token_data["last_asset_clear_at"] = int(
-                                last_asset_clear_at
-                            )
+                            token_data["last_asset_clear_at"] = int(last_asset_clear_at)
 
                         legacy_data = None
                         if data_json:
@@ -1583,8 +1581,20 @@ class StorageFactory:
                 lowered = storage_url.lower()
                 if lowered.startswith(("redis://", "rediss://")):
                     storage_type = "redis"
-                elif lowered.startswith(("mysql://", "mariadb://", "postgres://", "postgresql://", "pgsql://")):
-                    storage_type = "mysql" if lowered.startswith(("mysql://", "mariadb://")) else "pgsql"
+                elif lowered.startswith(
+                    (
+                        "mysql://",
+                        "mariadb://",
+                        "postgres://",
+                        "postgresql://",
+                        "pgsql://",
+                    )
+                ):
+                    storage_type = (
+                        "mysql"
+                        if lowered.startswith(("mysql://", "mariadb://"))
+                        else "pgsql"
+                    )
                 else:
                     storage_type = "local"
             else:

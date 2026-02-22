@@ -197,7 +197,11 @@ class MessageExtractor:
                         if raw:
                             file_attachments.append(raw)
 
-            return ("\n".join(parts) if parts else ""), file_attachments, image_attachments
+            return (
+                ("\n".join(parts) if parts else ""),
+                file_attachments,
+                image_attachments,
+            )
 
         # 找到最后一条 user 消息
         last_user_index = next(
@@ -389,7 +393,9 @@ class ChatService:
             context = await conversation_manager.get_conversation(conversation_id)
 
         if not context and messages and len(messages) > 1:
-            auto_conv_id = await conversation_manager.find_conversation_by_history(messages)
+            auto_conv_id = await conversation_manager.find_conversation_by_history(
+                messages
+            )
             if auto_conv_id:
                 context = await conversation_manager.get_conversation(auto_conv_id)
                 openai_conv_id = auto_conv_id
@@ -405,7 +411,9 @@ class ChatService:
         for attempt in range(max_token_retries):
             # 选择 token
             preferred = context.token if context else None
-            token = await pick_token(token_mgr, model, tried_tokens, preferred=preferred)
+            token = await pick_token(
+                token_mgr, model, tried_tokens, preferred=preferred
+            )
             if not token:
                 if last_error:
                     raise last_error
@@ -422,7 +430,10 @@ class ChatService:
                 # 若会话跨账号，尝试克隆分享会话
                 if context and token != context.token:
                     if context.share_link_id:
-                        new_conv_id, new_resp_id = await AppChatReverse.clone_share_link(
+                        (
+                            new_conv_id,
+                            new_resp_id,
+                        ) = await AppChatReverse.clone_share_link(
                             token, context.share_link_id
                         )
                         if new_conv_id and new_resp_id:
@@ -434,7 +445,9 @@ class ChatService:
                                 token=token,
                                 increment_message=False,
                             )
-                            context = await conversation_manager.get_conversation(openai_conv_id)
+                            context = await conversation_manager.get_conversation(
+                                openai_conv_id
+                            )
                         else:
                             context = None
                     else:
@@ -461,10 +474,14 @@ class ChatService:
                 # 处理响应
                 if is_stream:
                     logger.debug(f"Processing stream response: model={model}")
-                    processor = StreamProcessor(model_name, token, show_think, openai_conv_id)
+                    processor = StreamProcessor(
+                        model_name, token, show_think, openai_conv_id
+                    )
 
                     async def _update_conversation_from_processor():
-                        grok_conv_id = processor.grok_conversation_id or (context.conversation_id if context else "")
+                        grok_conv_id = processor.grok_conversation_id or (
+                            context.conversation_id if context else ""
+                        )
                         grok_resp_id = processor.response_id
                         if not grok_conv_id or not grok_resp_id:
                             return
@@ -532,7 +549,9 @@ class ChatService:
                 except Exception as e:
                     logger.warning(f"Failed to record usage: {e}")
 
-                grok_conv_id = collector.grok_conversation_id or (context.conversation_id if context else "")
+                grok_conv_id = collector.grok_conversation_id or (
+                    context.conversation_id if context else ""
+                )
                 grok_resp_id = collector.response_id
                 if grok_conv_id and grok_resp_id:
                     if context:
@@ -634,9 +653,7 @@ class StreamProcessor(proc_base.BaseProcessor):
         self.image_think_active: bool = False
         self.role_sent: bool = False
         self.filter_tags = get_config("app.filter_tags")
-        self.tool_usage_enabled = (
-            "xai:tool_usage_card" in (self.filter_tags or [])
-        )
+        self.tool_usage_enabled = "xai:tool_usage_card" in (self.filter_tags or [])
         self._tool_usage_opened = False
         self._tool_usage_buffer = ""
 
@@ -738,9 +755,11 @@ class StreamProcessor(proc_base.BaseProcessor):
             chunk["conversation_id"] = self.conversation_id
         return f"data: {orjson.dumps(chunk).decode()}\n\n"
 
-    async def process(self, response: AsyncIterable[bytes]) -> AsyncGenerator[str, None]:
+    async def process(
+        self, response: AsyncIterable[bytes]
+    ) -> AsyncGenerator[str, None]:
         """Process stream response.
-        
+
         Args:
             response: AsyncIterable[bytes], async iterable of bytes
 
@@ -798,9 +817,7 @@ class StreamProcessor(proc_base.BaseProcessor):
                         self.think_opened = True
                     idx = img.get("imageIndex", 0) + 1
                     progress = img.get("progress", 0)
-                    yield self._sse(
-                        f"正在生成第{idx}张图片中，当前进度{progress}%\n"
-                    )
+                    yield self._sse(f"正在生成第{idx}张图片中，当前进度{progress}%\n")
                     continue
 
                 if mr := resp.get("modelResponse"):
@@ -1023,6 +1040,7 @@ class CollectProcessor(proc_base.BaseProcessor):
                         card_map[card_id] = (title, original)
 
                     if content and card_map:
+
                         def _render_card(match: re.Match) -> str:
                             card_id = match.group(1)
                             item = card_map.get(card_id)
@@ -1065,7 +1083,9 @@ class CollectProcessor(proc_base.BaseProcessor):
         except asyncio.CancelledError:
             logger.debug("Collect cancelled by client", extra={"model": self.model})
         except StreamFirstTimeoutError as e:
-            logger.warning(f"Collect first response timeout: {e}", extra={"model": self.model})
+            logger.warning(
+                f"Collect first response timeout: {e}", extra={"model": self.model}
+            )
         except StreamTotalTimeoutError as e:
             logger.warning(f"Collect total timeout: {e}", extra={"model": self.model})
         except StreamIdleTimeoutError as e:
@@ -1130,6 +1150,3 @@ __all__ = [
     "MessageExtractor",
     "ChatService",
 ]
-
-
-

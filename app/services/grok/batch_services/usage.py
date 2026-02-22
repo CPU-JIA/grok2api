@@ -64,7 +64,6 @@ class UsageService:
                 # 最后一次失败已经被记录
                 raise
 
-
     @staticmethod
     async def batch(
         tokens: List[str],
@@ -74,6 +73,7 @@ class UsageService:
         should_cancel: Optional[Callable[[], bool]] = None,
     ) -> Dict[str, Dict[str, Any]]:
         batch_size = get_config("usage.batch_size")
+
         async def _refresh_one(t: str):
             return await mgr.sync_usage(t, consume_on_fail=False, is_usage=False)
 

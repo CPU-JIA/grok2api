@@ -48,7 +48,9 @@ class RetryContext:
         self.last_error = error
         self.attempt += 1
 
-    def calculate_delay(self, status_code: int, retry_after: Optional[float] = None) -> float:
+    def calculate_delay(
+        self, status_code: int, retry_after: Optional[float] = None
+    ) -> float:
         """
         Calculate backoff delay time.
 

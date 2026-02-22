@@ -72,9 +72,7 @@ class DownloadService:
             return f"{app_url.rstrip('/')}/v1/files/{media_type}{path}"
         return asset_url
 
-    async def render_image(
-        self, url: str, token: str, image_id: str = "image"
-    ) -> str:
+    async def render_image(self, url: str, token: str, image_id: str = "image") -> str:
         fmt = get_config("app.image_format")
         fmt = fmt.lower() if isinstance(fmt, str) else "url"
         if fmt not in ("base64", "url", "markdown"):
@@ -114,7 +112,9 @@ class DownloadService:
   <source id="mp4" src="{safe_video_url}" type="video/mp4">
 </video>'''
 
-    async def parse_b64(self, file_path: str, token: str, media_type: str = "image") -> str:
+    async def parse_b64(
+        self, file_path: str, token: str, media_type: str = "image"
+    ) -> str:
         """Download and return data URI."""
         try:
             if not isinstance(file_path, str) or not file_path.strip():
@@ -178,7 +178,9 @@ class DownloadService:
 
         return path
 
-    async def download_file(self, file_path: str, token: str, media_type: str = "image") -> Tuple[Optional[Path], str]:
+    async def download_file(
+        self, file_path: str, token: str, media_type: str = "image"
+    ) -> Tuple[Optional[Path], str]:
         """Download asset to local cache.
 
         Args:
@@ -195,13 +197,13 @@ class DownloadService:
             filename = file_path.lstrip("/").replace("/", "-")
             cache_path = cache_dir / filename
 
-            lock_name = (
-                f"dl_{media_type}_{hashlib.sha1(str(cache_path).encode()).hexdigest()[:16]}"
-            )
+            lock_name = f"dl_{media_type}_{hashlib.sha1(str(cache_path).encode()).hexdigest()[:16]}"
             lock_timeout = max(1, int(get_config("asset.download_timeout")))
             async with _file_lock(lock_name, timeout=lock_timeout):
                 session = await self.create()
-                response = await AssetsDownloadReverse.request(session, token, file_path)
+                response = await AssetsDownloadReverse.request(
+                    session, token, file_path
+                )
 
                 tmp_path = cache_path.with_suffix(cache_path.suffix + ".tmp")
                 try:

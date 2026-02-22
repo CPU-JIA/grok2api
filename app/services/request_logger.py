@@ -118,7 +118,9 @@ class RequestLogger:
             self._logs.appendleft(log_item)
         self._schedule_save()
 
-    async def list_logs(self, limit: int = 100, offset: int = 0) -> Dict[str, List[Dict]]:
+    async def list_logs(
+        self, limit: int = 100, offset: int = 0
+    ) -> Dict[str, List[Dict]]:
         await self.init()
         limit = max(1, int(limit))
         offset = max(0, int(offset))

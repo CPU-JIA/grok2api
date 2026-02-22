@@ -31,10 +31,14 @@ class MessageItem(BaseModel):
 class VideoConfig(BaseModel):
     """视频生成配置"""
 
-    aspect_ratio: Optional[str] = Field("3:2", description="视频比例: 1280x720(16:9), 720x1280(9:16), 1792x1024(3:2), 1024x1792(2:3), 1024x1024(1:1)")
+    aspect_ratio: Optional[str] = Field(
+        "3:2",
+        description="视频比例: 1280x720(16:9), 720x1280(9:16), 1792x1024(3:2), 1024x1792(2:3), 1024x1024(1:1)",
+    )
     video_length: Optional[int] = Field(6, description="视频时长(秒): 6 / 10 / 15")
     resolution_name: Optional[str] = Field("480p", description="视频分辨率: 480p, 720p")
     preset: Optional[str] = Field("custom", description="风格预设: fun, normal, spicy")
+
 
 class ImageConfig(BaseModel):
     """图片生成配置"""
@@ -50,7 +54,9 @@ class ChatCompletionRequest(BaseModel):
     model: str = Field(..., description="模型名称")
     messages: List[MessageItem] = Field(..., description="消息数组")
     stream: Optional[bool] = Field(None, description="是否流式输出")
-    reasoning_effort: Optional[str] = Field(None, description="推理强度: none/minimal/low/medium/high/xhigh")
+    reasoning_effort: Optional[str] = Field(
+        None, description="推理强度: none/minimal/low/medium/high/xhigh"
+    )
     temperature: Optional[float] = Field(0.8, description="采样温度: 0-2")
     top_p: Optional[float] = Field(0.95, description="nucleus 采样: 0-1")
     # 视频生成配置
@@ -153,6 +159,7 @@ def _image_field(response_format: str) -> str:
         return "url"
     return "b64_json"
 
+
 def _validate_image_config(image_conf: ImageConfig, *, stream: bool):
     n = image_conf.n or 1
     if n < 1 or n > 10:
@@ -181,6 +188,8 @@ def _validate_image_config(image_conf: ImageConfig, *, stream: bool):
             param="image_config.size",
             code="invalid_size",
         )
+
+
 def validate_request(request: ChatCompletionRequest):
     """验证请求参数"""
     # 验证模型
@@ -568,9 +577,7 @@ async def chat_completions(request: ChatCompletionRequest):
             )
 
         content = result.data[0] if result.data else ""
-        return JSONResponse(
-            content=make_chat_response(request.model, content)
-        )
+        return JSONResponse(content=make_chat_response(request.model, content))
 
     if model_info and model_info.is_image:
         prompt, _ = _extract_prompt_images(request.messages)

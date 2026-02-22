@@ -9,7 +9,9 @@ import tomllib
 
 from app.core.logger import logger
 
-DEFAULTS_FILE = Path(__file__).resolve().parent.parent.parent.parent / "config.defaults.toml"
+DEFAULTS_FILE = (
+    Path(__file__).resolve().parent.parent.parent.parent / "config.defaults.toml"
+)
 
 # Grok 服务默认配置（运行时从 config.defaults.toml 读取并缓存）
 GROK_DEFAULTS: dict = {}

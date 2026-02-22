@@ -318,7 +318,9 @@ async def create_image(request: ImageGenerationRequest, raw_request: Request):
     )
     key_masked = api_key_manager.mask_key(api_key) if api_key else ""
 
-    async def record(success: bool, status: int, error: str | None = None, stream: bool = False):
+    async def record(
+        success: bool, status: int, error: str | None = None, stream: bool = False
+    ):
         duration_ms = int((time.time() - start_time) * 1000)
         try:
             await request_stats.record(request.model, success=success)
@@ -373,6 +375,7 @@ async def create_image(request: ImageGenerationRequest, raw_request: Request):
         )
 
         if result.stream:
+
             async def stream_wrapper():
                 ok = False
                 err = None
@@ -457,7 +460,9 @@ async def edit_image(
 
     model_for_log = model or "grok-imagine-1.0-edit"
 
-    async def record(success: bool, status: int, error: str | None = None, stream_mode: bool = False):
+    async def record(
+        success: bool, status: int, error: str | None = None, stream_mode: bool = False
+    ):
         duration_ms = int((time.time() - start_time) * 1000)
         try:
             await request_stats.record(model_for_log, success=success)
@@ -574,6 +579,7 @@ async def edit_image(
         )
 
         if result.stream:
+
             async def stream_wrapper():
                 ok = False
                 err = None

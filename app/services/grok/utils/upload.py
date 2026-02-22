@@ -83,7 +83,9 @@ class UploadService:
             parts.append(base64.b64encode(remain).decode())
         return "".join(parts)
 
-    async def _read_local_file(self, local_type: str, name: str) -> Tuple[str, str, str]:
+    async def _read_local_file(
+        self, local_type: str, name: str
+    ) -> Tuple[str, str, str]:
         base_dir = DATA_DIR / "tmp"
         if local_type == "video":
             local_dir = base_dir / "video"
@@ -101,7 +103,9 @@ class UploadService:
                 mime = "image/jpeg"
 
         local_path = local_dir / name
-        lock_name = f"ul_local_{hashlib.sha1(str(local_path).encode()).hexdigest()[:16]}"
+        lock_name = (
+            f"ul_local_{hashlib.sha1(str(local_path).encode()).hexdigest()[:16]}"
+        )
         lock_timeout = max(1, int(get_config("asset.upload_timeout")))
         async with _file_lock(lock_name, timeout=lock_timeout):
             if not local_path.exists():
@@ -157,9 +161,9 @@ class UploadService:
                     )
 
                 filename = url.split("/")[-1].split("?")[0] or "download"
-                content_type = response.headers.get(
-                    "content-type", ""
-                ).split(";")[0].strip()
+                content_type = (
+                    response.headers.get("content-type", "").split(";")[0].strip()
+                )
                 if not content_type:
                     content_type = self._infer_mime(filename)
                 if hasattr(response, "aiter_content"):
@@ -247,5 +251,3 @@ class UploadService:
 
 
 __all__ = ["UploadService"]
-
-

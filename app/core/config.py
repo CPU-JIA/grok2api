@@ -133,9 +133,7 @@ def _migrate_deprecated_config(
                         f"Migrated config: {old_path} -> {new_path} = {old_value}"
                     )
                 except Exception as e:
-                    logger.warning(
-                        f"Skip config migration for {old_path}: {e}"
-                    )
+                    logger.warning(f"Skip config migration for {old_path}: {e}")
                     continue
             if isinstance(result.get(old_section), dict):
                 result[old_section].pop(old_key, None)

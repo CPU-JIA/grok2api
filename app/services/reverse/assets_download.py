@@ -53,7 +53,9 @@ class AssetsDownloadReverse:
             proxies = build_proxies(proxy_url)
 
             # Guess content type by extension for Accept/Sec-Fetch-Dest
-            content_type = _CONTENT_TYPES.get(Path(urllib.parse.urlparse(file_path).path).suffix.lower())
+            content_type = _CONTENT_TYPES.get(
+                Path(urllib.parse.urlparse(file_path).path).suffix.lower()
+            )
 
             # Build headers
             headers = build_headers(
@@ -110,7 +112,9 @@ class AssetsDownloadReverse:
 
                 if status == 401:
                     try:
-                        await TokenService.record_fail(token, status, "assets_download_auth_failed")
+                        await TokenService.record_fail(
+                            token, status, "assets_download_auth_failed"
+                        )
                     except Exception:
                         pass
                 raise
@@ -127,7 +131,3 @@ class AssetsDownloadReverse:
 
 
 __all__ = ["AssetsDownloadReverse"]
-
-
-
-

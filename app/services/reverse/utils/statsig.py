@@ -36,15 +36,13 @@ class StatsigGenerator:
         # Dynamic Statsig ID
         if dynamic:
             logger.debug("Generating dynamic Statsig ID")
-            
+
             if random.choice([True, False]):
                 rand = StatsigGenerator._rand(5, alphanumeric=True)
                 message = f"e:TypeError: Cannot read properties of null (reading 'children['{rand}']')"
             else:
                 rand = StatsigGenerator._rand(10)
-                message = (
-                    f"e:TypeError: Cannot read properties of undefined (reading '{rand}')"
-                )
+                message = f"e:TypeError: Cannot read properties of undefined (reading '{rand}')"
 
             return base64.b64encode(message.encode()).decode()
 

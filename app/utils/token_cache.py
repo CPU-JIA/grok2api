@@ -24,9 +24,9 @@ class TokenCache:
         """
         self.max_size = max_size
         self.ttl_seconds = ttl_seconds
-        self._cache: dict[tuple, tuple[str, float]] = (
-            {}
-        )  # (pool_name, effort) -> (token, timestamp)
+        self._cache: dict[
+            tuple, tuple[str, float]
+        ] = {}  # (pool_name, effort) -> (token, timestamp)
         self._access_order: list[tuple] = []  # LRU 访问顺序
         self._hits = 0
         self._misses = 0

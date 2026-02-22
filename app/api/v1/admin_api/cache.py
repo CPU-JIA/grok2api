@@ -6,6 +6,7 @@ from app.core.auth import verify_app_key
 from app.core.batch import create_task, expire_task
 from app.services.grok.batch_services.assets import ListService, DeleteService
 from app.services.token.manager import get_token_manager
+
 router = APIRouter()
 
 
@@ -283,6 +284,7 @@ async def clear_online_async(data: dict):
 
     async def _run():
         try:
+
             async def _on_item(item: str, res: dict):
                 ok = bool(res.get("data", {}).get("ok"))
                 task.record(ok)
@@ -325,9 +327,11 @@ async def clear_online_async(data: dict):
             task.fail_task(str(e))
         finally:
             import asyncio
+
             asyncio.create_task(expire_task(task.id, 300))
 
     import asyncio
+
     asyncio.create_task(_run())
 
     return {
@@ -432,9 +436,11 @@ async def load_cache_async(data: dict):
             task.fail_task(str(e))
         finally:
             import asyncio
+
             asyncio.create_task(expire_task(task.id, 300))
 
     import asyncio
+
     asyncio.create_task(_run())
 
     return {
@@ -442,4 +448,3 @@ async def load_cache_async(data: dict):
         "task_id": task.id,
         "total": len(selected_tokens),
     }
-

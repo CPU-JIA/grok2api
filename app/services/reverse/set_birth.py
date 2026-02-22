@@ -82,7 +82,9 @@ class SetBirthReverse:
                         details={"status": response.status_code},
                     )
 
-                logger.debug(f"SetBirthReverse: Request successful, {response.status_code}")
+                logger.debug(
+                    f"SetBirthReverse: Request successful, {response.status_code}"
+                )
 
                 return response
 
@@ -109,6 +111,3 @@ class SetBirthReverse:
 
 
 __all__ = ["SetBirthReverse"]
-
-
-

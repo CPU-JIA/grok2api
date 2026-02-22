@@ -18,7 +18,11 @@ from app.core.storage import DATA_DIR
 from app.core.exceptions import AppException, ErrorType, UpstreamException
 from app.services.grok.utils.process import BaseProcessor
 from app.services.grok.utils.retry import pick_token, rate_limited
-from app.services.grok.utils.response import make_response_id, make_chat_chunk, wrap_image_content
+from app.services.grok.utils.response import (
+    make_response_id,
+    make_chat_chunk,
+    wrap_image_content,
+)
 from app.services.grok.utils.stream import wrap_stream_with_usage
 from app.services.token import EffortType
 from app.services.reverse.ws_imagine import ImagineWebSocketReverse
@@ -57,12 +61,16 @@ class ImageGenerationService:
         last_error: Optional[Exception] = None
 
         if stream:
+
             async def _stream_retry() -> AsyncGenerator[str, None]:
                 nonlocal last_error
                 for attempt in range(max_token_retries):
                     preferred = token if attempt == 0 else None
                     current_token = await pick_token(
-                        token_mgr, model_info.model_id, tried_tokens, preferred=preferred
+                        token_mgr,
+                        model_info.model_id,
+                        tried_tokens,
+                        preferred=preferred,
                     )
                     if not current_token:
                         if last_error:
@@ -341,7 +349,9 @@ class ImageWSBaseProcessor(BaseProcessor):
             return "jpg"
         return None
 
-    def _filename(self, image_id: str, is_final: bool, ext: Optional[str] = None) -> str:
+    def _filename(
+        self, image_id: str, is_final: bool, ext: Optional[str] = None
+    ) -> str:
         if ext:
             ext = ext.lower()
             if ext == "jpeg":
@@ -619,7 +629,10 @@ class ImageWSStreamProcessor(ImageWSBaseProcessor):
                             "total_tokens": 0,
                             "input_tokens": 0,
                             "output_tokens": 0,
-                            "input_tokens_details": {"text_tokens": 0, "image_tokens": 0},
+                            "input_tokens_details": {
+                                "text_tokens": 0,
+                                "image_tokens": 0,
+                            },
                         },
                     },
                 )

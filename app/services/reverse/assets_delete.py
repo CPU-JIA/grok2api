@@ -81,7 +81,9 @@ class AssetsDeleteReverse:
                     status = getattr(e, "status_code", None)
                 if status == 401:
                     try:
-                        await TokenService.record_fail(token, status, "assets_delete_auth_failed")
+                        await TokenService.record_fail(
+                            token, status, "assets_delete_auth_failed"
+                        )
                     except Exception:
                         pass
                 raise
@@ -96,9 +98,5 @@ class AssetsDeleteReverse:
                 details={"status": 502, "error": str(e)},
             )
 
+
 __all__ = ["AssetsDeleteReverse"]
-
-
-
-
-

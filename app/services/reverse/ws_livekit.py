@@ -32,7 +32,7 @@ class LivekitTokenReverse:
         speed: float = 1.0,
     ) -> Dict[str, Any]:
         """Fetch LiveKit token.
-        
+
         Args:
             session: AsyncSession, the session to use for the request.
             token: str, the SSO token.
@@ -137,7 +137,7 @@ class LivekitWebSocketReverse:
 
     async def connect(self, token: str) -> WebSocketConnection:
         """Connect to the LiveKit WebSocket.
-        
+
         Args:
             token: str, the SSO token.
 
@@ -181,6 +181,3 @@ __all__ = [
     "LIVEKIT_TOKEN_API",
     "LIVEKIT_WS_URL",
 ]
-
-
-

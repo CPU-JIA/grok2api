@@ -44,7 +44,16 @@ class ProxyPool:
         if "//" not in candidate:
             candidate = f"http://{candidate}"
 
-        if not candidate.startswith(("http://", "https://", "socks5://", "socks5h://", "socks4://", "socks4a://")):
+        if not candidate.startswith(
+            (
+                "http://",
+                "https://",
+                "socks5://",
+                "socks5h://",
+                "socks4://",
+                "socks4a://",
+            )
+        ):
             return None
 
         return candidate
@@ -166,7 +175,9 @@ class ProxyPool:
                         logger.info(f"Proxy pool switched proxy: {proxy}")
                     self._current_proxy = proxy
                 else:
-                    logger.warning("Proxy pool returned no valid proxy; keep previous proxy")
+                    logger.warning(
+                        "Proxy pool returned no valid proxy; keep previous proxy"
+                    )
                 return self._current_proxy
             except Exception as e:
                 self._last_refresh_at = time.monotonic()
@@ -246,7 +257,9 @@ async def get_proxy_url(*, for_asset: bool = False) -> Optional[str]:
 
 
 async def request_with_proxy_retry(
-    request_func: Callable[[Optional[str], Optional[dict[str, str]], int], Awaitable[Any]],
+    request_func: Callable[
+        [Optional[str], Optional[dict[str, str]], int], Awaitable[Any]
+    ],
 ) -> Any:
     """
     Retry request on 403 by forcing proxy rotation from dynamic pool.

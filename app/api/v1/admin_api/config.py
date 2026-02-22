@@ -27,7 +27,9 @@ class SessionLoginRequest(BaseModel):
 
 
 @router.post("/session")
-async def admin_create_session(payload: SessionLoginRequest, request: Request, response: Response):
+async def admin_create_session(
+    payload: SessionLoginRequest, request: Request, response: Response
+):
     if not get_app_key():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

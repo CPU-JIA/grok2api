@@ -4,7 +4,15 @@ import uuid
 from typing import Optional, List, Dict, Any
 
 import orjson
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -94,7 +102,9 @@ def _normalize_response_format(value: Optional[str]) -> str:
     return fmt
 
 
-def _public_query_key_allowed(key: Optional[str], cookies: Optional[Dict[str, str]] = None) -> bool:
+def _public_query_key_allowed(
+    key: Optional[str], cookies: Optional[Dict[str, str]] = None
+) -> bool:
     return has_public_access((key or "").strip(), cookies)
 
 
@@ -432,6 +442,7 @@ async def public_imagine_ws(websocket: WebSocket):
 
         try:
             from starlette.websockets import WebSocketState
+
             if websocket.client_state == WebSocketState.CONNECTED:
                 await websocket.close(code=1000, reason="Server closing connection")
         except Exception as e:

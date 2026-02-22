@@ -102,7 +102,9 @@ class MediaPostReverse:
                     status = getattr(e, "status_code", None)
                 if status == 401:
                     try:
-                        await TokenService.record_fail(token, status, "media_post_auth_failed")
+                        await TokenService.record_fail(
+                            token, status, "media_post_auth_failed"
+                        )
                     except Exception:
                         pass
                 raise
@@ -119,6 +121,3 @@ class MediaPostReverse:
 
 
 __all__ = ["MediaPostReverse"]
-
-
-

@@ -72,6 +72,7 @@ def _format_json(record) -> str:
 
     return json.dumps(log_entry, ensure_ascii=False)
 
+
 def _env_flag(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:

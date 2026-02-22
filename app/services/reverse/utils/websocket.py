@@ -38,9 +38,12 @@ def _normalize_socks_proxy(proxy_url: str) -> tuple[str, Optional[bool]]:
     return proxy_url, rdns
 
 
-def resolve_proxy(proxy_url: Optional[str] = None, ssl_context: ssl.SSLContext = _default_ssl_context()) -> tuple[aiohttp.BaseConnector, Optional[str]]:
+def resolve_proxy(
+    proxy_url: Optional[str] = None,
+    ssl_context: ssl.SSLContext = _default_ssl_context(),
+) -> tuple[aiohttp.BaseConnector, Optional[str]]:
     """Resolve proxy connector.
-    
+
     Args:
         proxy_url: Optional[str], the proxy URL. Defaults to None.
         ssl_context: ssl.SSLContext, the SSL context. Defaults to _default_ssl_context().
@@ -72,7 +75,9 @@ def resolve_proxy(proxy_url: Optional[str] = None, ssl_context: ssl.SSLContext =
 class WebSocketConnection:
     """WebSocket connection wrapper."""
 
-    def __init__(self, session: aiohttp.ClientSession, ws: aiohttp.ClientWebSocketResponse) -> None:
+    def __init__(
+        self, session: aiohttp.ClientSession, ws: aiohttp.ClientWebSocketResponse
+    ) -> None:
         self.session = session
         self.ws = ws
 
@@ -103,7 +108,7 @@ class WebSocketClient:
         ws_kwargs: Optional[Mapping[str, object]] = None,
     ) -> WebSocketConnection:
         """Connect to the WebSocket.
-        
+
         Args:
             url: str, the URL to connect to.
             headers: Optional[Mapping[str, str]], the headers to send. Defaults to None.
@@ -113,9 +118,15 @@ class WebSocketClient:
             WebSocketConnection: The WebSocket connection.
         """
         # Resolve proxy dynamically from config if not overridden
-        proxy_url = self._proxy_override or proxy_pool.get_current_proxy() or get_config("proxy.base_proxy_url")
+        proxy_url = (
+            self._proxy_override
+            or proxy_pool.get_current_proxy()
+            or get_config("proxy.base_proxy_url")
+        )
         connector, resolved_proxy = resolve_proxy(proxy_url, self._ssl_context)
-        logger.debug(f"WebSocket connect: proxy_url={proxy_url}, resolved_proxy={resolved_proxy}, connector={type(connector).__name__}")
+        logger.debug(
+            f"WebSocket connect: proxy_url={proxy_url}, resolved_proxy={resolved_proxy}, connector={type(connector).__name__}"
+        )
 
         # Build client timeout
         total_timeout = (
@@ -144,4 +155,3 @@ class WebSocketClient:
 
 
 __all__ = ["WebSocketClient", "WebSocketConnection", "resolve_proxy"]
-

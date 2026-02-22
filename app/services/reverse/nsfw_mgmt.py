@@ -78,7 +78,9 @@ class NsfwMgmtReverse:
                         details={"status": response.status_code},
                     )
 
-                logger.debug(f"NsfwMgmtReverse: Request successful, {response.status_code}")
+                logger.debug(
+                    f"NsfwMgmtReverse: Request successful, {response.status_code}"
+                )
 
                 return response
 
@@ -124,6 +126,3 @@ class NsfwMgmtReverse:
 
 
 __all__ = ["NsfwMgmtReverse"]
-
-
-

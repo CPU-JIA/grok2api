@@ -61,7 +61,9 @@ class ConversationManager:
         return max(0.0, delay_ms / 1000.0)
 
     @staticmethod
-    def compute_history_hash(messages: List[Dict[str, Any]], exclude_last_user: bool = False) -> str:
+    def compute_history_hash(
+        messages: List[Dict[str, Any]], exclude_last_user: bool = False
+    ) -> str:
         if not messages:
             return ""
 
@@ -128,7 +130,9 @@ class ConversationManager:
     def generate_id(self) -> str:
         return f"conv-{uuid.uuid4().hex[:24]}"
 
-    async def find_conversation_by_history(self, messages: List[Dict[str, Any]]) -> Optional[str]:
+    async def find_conversation_by_history(
+        self, messages: List[Dict[str, Any]]
+    ) -> Optional[str]:
         if not messages:
             return None
         history_hash = self.compute_history_hash(messages, exclude_last_user=True)
@@ -138,7 +142,9 @@ class ConversationManager:
         if conv_id:
             context = await self.get_conversation(conv_id)
             if context:
-                logger.info(f"[ConversationManager] Auto matched: {conv_id}, hash={history_hash}")
+                logger.info(
+                    f"[ConversationManager] Auto matched: {conv_id}, hash={history_hash}"
+                )
                 return conv_id
             self.hash_to_conversation.pop(history_hash, None)
         return None
@@ -182,7 +188,9 @@ class ConversationManager:
         self._schedule_save()
         return openai_conv_id
 
-    async def get_conversation(self, openai_conv_id: str) -> Optional[ConversationContext]:
+    async def get_conversation(
+        self, openai_conv_id: str
+    ) -> Optional[ConversationContext]:
         context = self.conversations.get(openai_conv_id)
         if context:
             if time.time() - context.updated_at > self._get_ttl():
@@ -225,7 +233,9 @@ class ConversationManager:
 
         self._schedule_save()
 
-    async def delete_conversation(self, openai_conv_id: str, *, persist: bool = True) -> bool:
+    async def delete_conversation(
+        self, openai_conv_id: str, *, persist: bool = True
+    ) -> bool:
         context = self.conversations.pop(openai_conv_id, None)
         if not context:
             return False
@@ -263,7 +273,9 @@ class ConversationManager:
     async def _cleanup_expired(self, *, persist: bool = False) -> int:
         now = time.time()
         ttl = self._get_ttl()
-        expired = [cid for cid, ctx in self.conversations.items() if now - ctx.updated_at > ttl]
+        expired = [
+            cid for cid, ctx in self.conversations.items() if now - ctx.updated_at > ttl
+        ]
         for cid in expired:
             await self.delete_conversation(cid, persist=False)
         if expired:
