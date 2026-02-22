@@ -1,0 +1,138 @@
+name: Docker Test
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "docker-compose*.yml"
+      - ".dockerignore"
+  workflow_dispatch:
+
+jobs:
+  test-docker:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: grok2api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          # Start container
+          docker run -d --name grok2api-test \
+            -e LOG_LEVEL=INFO \
+            -e SERVER_STORAGE_TYPE=local \
+            -p 8000:8000 \
+            grok2api:test
+
+          # Wait for container to be ready
+          echo "Waiting for container to start..."
+          sleep 10
+
+          # Check if container is running
+          if ! docker ps | grep -q grok2api-test; then
+            echo "::error::Container failed to start"
+            docker logs grok2api-test
+            exit 1
+          fi
+
+          # Test health endpoint
+          echo "Testing /v1/models endpoint..."
+          max_retries=30
+          retry_count=0
+          while [ $retry_count -lt $max_retries ]; do
+            if curl -f http://localhost:8000/v1/models; then
+              echo "✅ Health check passed"
+              break
+            fi
+            retry_count=$((retry_count + 1))
+            echo "Retry $retry_count/$max_retries..."
+            sleep 2
+          done
+
+          if [ $retry_count -eq $max_retries ]; then
+            echo "::error::Health check failed after $max_retries retries"
+            docker logs grok2api-test
+            exit 1
+          fi
+
+          # Check logs for errors
+          if docker logs grok2api-test 2>&1 | grep -i "error\|critical\|exception" | grep -v "CRITICAL SECURITY ERROR"; then
+            echo "::warning::Errors found in container logs"
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop grok2api-test || true
+          docker rm grok2api-test || true
+
+  test-docker-compose:
+    name: Test Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test docker-compose.yml
+        run: |
+          docker compose config
+          echo "✅ docker-compose.yml is valid"
+
+      - name: Test docker-compose.full.yml
+        run: |
+          docker compose -f docker-compose.full.yml config
+          echo "✅ docker-compose.full.yml is valid"
+
+      - name: Start services (basic)
+        run: |
+          docker compose up -d
+          sleep 10
+
+          # Check if service is running
+          if ! docker compose ps | grep -q "grok2api"; then
+            echo "::error::Service failed to start"
+            docker compose logs
+            exit 1
+          fi
+
+          echo "✅ Basic docker-compose setup works"
+
+      - name: Cleanup basic setup
+        if: always()
+        run: docker compose down -v
+
+      - name: Start services (with Redis)
+        run: |
+          docker compose -f docker-compose.full.yml --profile redis up -d
+          sleep 15
+
+          # Check if services are running
+          if ! docker compose -f docker-compose.full.yml ps | grep -q "grok2api"; then
+            echo "::error::Grok2API service failed to start"
+            docker compose -f docker-compose.full.yml logs grok2api
+            exit 1
+          fi
+
+          if ! docker compose -f docker-compose.full.yml ps | grep -q "redis"; then
+            echo "::error::Redis service failed to start"
+            docker compose -f docker-compose.full.yml logs redis
+            exit 1
+          fi
+
+          echo "✅ Docker Compose with Redis works"
+
+      - name: Cleanup full setup
+        if: always()
+        run: docker compose -f docker-compose.full.yml --profile redis down -v

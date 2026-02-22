@@ -18,7 +18,7 @@
 import asyncio
 import time
 from enum import Enum
-from typing import Callable, Any, Optional, TypeVar, ParamSpec
+from typing import Callable, Optional, TypeVar, ParamSpec
 from dataclasses import dataclass, field
 
 from app.core.logger import logger
@@ -164,7 +164,7 @@ class CircuitBreaker:
             await self._on_success()
             return result
 
-        except asyncio.TimeoutError as e:
+        except asyncio.TimeoutError:
             # 超时视为失败
             await self._on_failure()
             self.stats.total_timeouts += 1
@@ -173,7 +173,7 @@ class CircuitBreaker:
             )
             raise
 
-        except Exception as e:
+        except Exception:
             # 记录失败
             await self._on_failure()
             raise

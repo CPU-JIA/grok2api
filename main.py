@@ -38,10 +38,10 @@ from app.api.v1.files import router as files_router  # noqa: E402
 from app.api.v1.models import router as models_router  # noqa: E402
 from app.services.token import get_scheduler  # noqa: E402
 from app.services.mcp import create_mcp_http_app  # noqa: E402
-from app.api.v1.admin_api import router as admin_router
-from app.api.v1.public_api import router as public_router
-from app.api.pages import router as pages_router
-from fastapi.staticfiles import StaticFiles
+from app.api.v1.admin_api import router as admin_router  # noqa: E402
+from app.api.v1.public_api import router as public_router  # noqa: E402
+from app.api.pages import router as pages_router  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 # 初始化日志
 setup_logging(

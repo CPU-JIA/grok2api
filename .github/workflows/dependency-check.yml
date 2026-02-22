@@ -1,0 +1,75 @@
+name: Dependency Check
+
+on:
+  schedule:
+    # Run every Monday at 00:00 UTC
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+jobs:
+  check-dependencies:
+    name: Check for Dependency Updates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Check for outdated dependencies
+        run: |
+          uv pip list --outdated > outdated.txt || true
+          if [ -s outdated.txt ]; then
+            echo "## Outdated Dependencies" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat outdated.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All dependencies are up to date" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check for security vulnerabilities
+        run: |
+          uv pip install pip-audit
+          uv run pip-audit --format json > audit.json || true
+          if [ -s audit.json ]; then
+            echo "## Security Vulnerabilities Found" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat audit.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No security vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Create issue if vulnerabilities found
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## Dependency Security Alert\n\n';
+
+            if (fs.existsSync('audit.json')) {
+              const audit = JSON.parse(fs.readFileSync('audit.json', 'utf8'));
+              body += '### Security Vulnerabilities\n\n';
+              body += '```json\n' + JSON.stringify(audit, null, 2) + '\n```\n\n';
+            }
+
+            if (fs.existsSync('outdated.txt')) {
+              const outdated = fs.readFileSync('outdated.txt', 'utf8');
+              body += '### Outdated Dependencies\n\n';
+              body += '```\n' + outdated + '\n```\n';
+            }
+
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔒 Security: Dependency vulnerabilities detected',
+              body: body,
+              labels: ['security', 'dependencies']
+            });

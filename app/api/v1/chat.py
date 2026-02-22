@@ -5,8 +5,6 @@ Chat Completions API 路由
 from typing import Any, Dict, List, Optional, Union
 import base64
 import binascii
-import time
-import uuid
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -530,7 +528,7 @@ async def chat_completions(request: ChatCompletionRequest):
         image_conf = request.image_config or ImageConfig()
         _validate_image_config(image_conf, stream=bool(is_stream))
         response_format = _resolve_image_format(image_conf.response_format)
-        response_field = _image_field(response_format)
+        _image_field(response_format)
         n = image_conf.n or 1
 
         token_mgr = await get_token_manager()
@@ -583,7 +581,7 @@ async def chat_completions(request: ChatCompletionRequest):
         image_conf = request.image_config or ImageConfig()
         _validate_image_config(image_conf, stream=bool(is_stream))
         response_format = _resolve_image_format(image_conf.response_format)
-        response_field = _image_field(response_format)
+        _image_field(response_format)
         n = image_conf.n or 1
         size = image_conf.size or "1024x1024"
         aspect_ratio_map = {

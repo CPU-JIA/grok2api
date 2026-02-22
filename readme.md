@@ -29,11 +29,24 @@
 git clone https://github.com/CPU-JIA/grok2api
 cd grok2api
 
-# 启动 Grok2API + Redis
-docker compose -f docker-compose.full.yml up -d grok2api redis
+# 1. 配置环境变量（重要！）
+cp .env.example .env
+# 编辑 .env 文件，设置强密码：
+# - REDIS_PASSWORD
+# - MYSQL_PASSWORD
+# - POSTGRES_PASSWORD
+
+# 2. 启动 Grok2API + Redis
+docker compose -f docker-compose.full.yml --env-file .env up -d grok2api redis
 ```
 
 访问 `http://localhost:8000/admin` 开始使用（默认密码：`grok2api`）
+
+> **安全提示**：
+>
+> - 生产环境必须修改 `.env` 中的所有默认密码
+> - 不要将 `.env` 文件提交到版本控制
+> - 首次启动后立即修改管理后台密码
 
 **其他存储方案**：
 
@@ -42,10 +55,10 @@ docker compose -f docker-compose.full.yml up -d grok2api redis
 docker compose up -d
 
 # MySQL 存储
-docker compose -f docker-compose.full.yml up -d grok2api mysql
+docker compose -f docker-compose.full.yml --env-file .env up -d grok2api mysql
 
 # PostgreSQL 存储
-docker compose -f docker-compose.full.yml up -d grok2api postgres
+docker compose -f docker-compose.full.yml --env-file .env up -d grok2api postgres
 ```
 
 ### 本地开发

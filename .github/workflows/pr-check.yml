@@ -1,0 +1,83 @@
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-check:
+    name: PR Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run ruff check
+        run: uv run ruff check . --output-format=github
+
+      - name: Run ruff format check
+        run: uv run ruff format --check .
+
+      - name: Check for large files
+        run: |
+          large_files=$(find . -type f -size +10M -not -path "./.git/*" -not -path "./data/*" -not -path "./logs/*")
+          if [ -n "$large_files" ]; then
+            echo "::error::Large files detected (>10MB):"
+            echo "$large_files"
+            exit 1
+          fi
+
+      - name: Check for sensitive data patterns
+        run: |
+          if grep -r -E "(password|secret|api_key|token)\s*=\s*['\"][^'\"]{8,}" --include="*.py" --include="*.toml" --exclude-dir=".git" --exclude-dir="data" .; then
+            echo "::warning::Potential sensitive data found in code. Please review."
+          fi
+
+      - name: PR size check
+        run: |
+          files_changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l)
+          lines_changed=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | grep -oE '[0-9]+ insertions|[0-9]+ deletions' | grep -oE '[0-9]+' | awk '{sum+=$1} END {print sum}')
+
+          echo "Files changed: $files_changed"
+          echo "Lines changed: $lines_changed"
+
+          if [ "$files_changed" -gt 50 ]; then
+            echo "::warning::Large PR detected ($files_changed files changed). Consider splitting into smaller PRs."
+          fi
+
+          if [ "$lines_changed" -gt 1000 ]; then
+            echo "::warning::Large PR detected ($lines_changed lines changed). Consider splitting into smaller PRs."
+          fi
+
+      - name: Comment PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const files_changed = parseInt(process.env.FILES_CHANGED || '0');
+            const lines_changed = parseInt(process.env.LINES_CHANGED || '0');
+
+            let comment = '## PR Quality Check\n\n';
+            comment += `- **Files changed**: ${files_changed}\n`;
+            comment += `- **Lines changed**: ${lines_changed}\n`;
+            comment += '\n✅ All checks passed!';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

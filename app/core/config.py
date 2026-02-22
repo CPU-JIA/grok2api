@@ -72,18 +72,12 @@ def _migrate_deprecated_config(
         "grok.image_ws_blocked_seconds": "image.final_timeout",
         "grok.image_ws_final_min_bytes": "image.final_min_bytes",
         "grok.image_ws_medium_min_bytes": "image.medium_min_bytes",
-        # legacy sections
-        "network.base_proxy_url": "proxy.base_proxy_url",
-        "network.asset_proxy_url": "proxy.asset_proxy_url",
         "network.timeout": [
             "chat.timeout",
             "image.timeout",
             "video.timeout",
             "voice.timeout",
         ],
-        "security.cf_clearance": "proxy.cf_clearance",
-        "security.browser": "proxy.browser",
-        "security.user_agent": "proxy.user_agent",
         "timeout.stream_idle_timeout": [
             "chat.stream_timeout",
             "image.stream_timeout",

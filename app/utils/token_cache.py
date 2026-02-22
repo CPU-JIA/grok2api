@@ -4,7 +4,6 @@ Token 选择 LRU 缓存
 为热点 Token 提供 LRU 缓存机制，减少 Token 池查询开销。
 """
 
-from functools import lru_cache
 from typing import Optional, Set
 import time
 
